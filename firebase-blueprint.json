@@ -1,0 +1,56 @@
+{
+  "entities": {
+    "Student": {
+      "title": "Student",
+      "description": "Data induk siswa SDN 006 SUNGAI BULUH",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "namaLengkap": { "type": "string" },
+        "nis": { "type": "string" },
+        "nisn": { "type": "string" },
+        "kelas": { "type": "string" },
+        "statusSiswa": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "namaLengkap", "nis", "nisn"]
+    },
+    "SchoolProfile": {
+      "title": "SchoolProfile",
+      "description": "Profil kelembagaan SDN 006 SUNGAI BULUH",
+      "type": "object",
+      "properties": {
+        "namaSekolah": { "type": "string" },
+        "npsn": { "type": "string" },
+        "kepalaSekolah": { "type": "string" }
+      },
+      "required": ["namaSekolah", "npsn"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "Catatan aktivitas dan audit sistem",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "action": { "type": "string" },
+        "description": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "action", "description", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/students/{studentId}": {
+      "schema": "Student",
+      "description": "Koleksi data buku induk siswa"
+    },
+    "/schoolProfile/{profileId}": {
+      "schema": "SchoolProfile",
+      "description": "Informasi profil dan identitas sekolah"
+    },
+    "/activityLogs/{logId}": {
+      "schema": "ActivityLog",
+      "description": "Log aktivitas sistem dan riwayat perubahan"
+    }
+  }
+}

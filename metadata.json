@@ -1,0 +1,8 @@
+{
+  "name": "INDUK Sekolah SDN 006 SUNGAI BULUH OKTOBER 2026 versi 2",
+  "description": "Sistem Informasi Manajemen Buku Induk Siswa Sekolah Indonesia terpadu untuk pendataan siswa, raport, mutasi, dan ijazah.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

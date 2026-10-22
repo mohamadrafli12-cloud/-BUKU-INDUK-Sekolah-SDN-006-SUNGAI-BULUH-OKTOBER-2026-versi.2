@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+@media print {
+  /* 1. Global Reset: Eliminate all box-shadows, text-shadows, and backdrop-filters
+     (backdrop-filter in Chromium causes opaque black rectangular covers/shadows over print preview) */
+  *,
+  *::before,
+  *::after {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    filter: none !important;
+  }
+
+  /* 2. Hide ALL non-printable UI elements: navigation, sidebars, topbars, toolbars,
+     modal overlays, dialogs, drawers, and fixed dark backdrops */
+  #topbar,
+  #sidebar,
+  nav,
+  aside,
+  header,
+  footer,
+  .no-print,
+  .print-hidden,
+  [class*="print:hidden"],
+  [class*="fixed inset-0"],
+  [class*="backdrop-blur"],
+  [class*="bg-slate-900/"],
+  [class*="bg-slate-950/"],
+  [class*="bg-black/"],
+  [role="dialog"],
+  [aria-modal="true"],
+  .modal-backdrop {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+  }
+
+  /* 3. Pure White Background: Override any dark-mode background colors so print preview is 100% white, clean, and unshadowed */
+  html,
+  body,
+  #root,
+  #root > div,
+  main,
+  div:has(> .print-page),
+  .print-page {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  body {
+    font-size: 11pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 4. Kop Surat Header & Images Guarantee */
+  .kop-surat-header,
+  div.kop-surat-header {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    background: transparent !important;
+  }
+
+  .kop-surat-header * {
+    visibility: visible !important;
+  }
+
+  .kop-surat-header img,
+  .kop-surat-header svg,
+  .print-page img,
+  .print-page svg {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .kop-surat-header img,
+  .kop-surat-header svg {
+    max-height: 75px !important;
+  }
+
+  /* 5. Print Pages & Breaks */
+  .print-page {
+    width: 100% !important;
+    margin: 0 auto !important;
+    padding: 10mm 12mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .print-page:last-child {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  .page-break {
+    page-break-after: always;
+    break-after: page;
+    height: 0 !important;
+    display: block !important;
+  }
+
+  /* 6. Crisp Black Borders for Official Government Tables */
+  table, th, td {
+    border-color: #000000 !important;
+  }
+
+  /* Prevent page breaks inside rows */
+  tr, .avoid-break {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
+
+/* Custom crisp scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

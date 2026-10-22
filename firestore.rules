@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Profil sekolah dapat dibaca publik (untuk kop surat & verifikasi), penulisan memerlukan otentikasi
+    match /schoolProfile/{profileId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Data siswa dapat dibaca publik untuk verifikasi QR/NISN ijazah, penulisan memerlukan otentikasi
+    match /students/{studentId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Log aktivitas sistem
+    match /activityLogs/{logId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Tes koneksi database
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+  }
+}
