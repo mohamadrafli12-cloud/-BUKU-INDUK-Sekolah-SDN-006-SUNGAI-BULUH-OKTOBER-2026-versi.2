@@ -166,7 +166,7 @@ export interface Student {
   tanggalDiterima: string;
   diterimaDiKelas: string;
   kelasSekarang: string;
-  tahunPelajaranKelasSekarang?: string; // Tahun Pelajaran acuan kelasSekarang (default: "2025/2026")
+  tahunPelajaranKelasSekarang?: string; // Tahun Pelajaran acuan kelasSekarang (default: "2026/2027")
   status: StudentStatus;
   tahunMasuk: string;
   fotoUrl?: string;
@@ -234,7 +234,7 @@ export interface SchoolProfile {
   logoKananUrl?: string; // Logo sebelah kanan kop surat (Tut Wuri Handayani / Logo Kanan)
   tutWuriLogoUrl?: string;
   stempelUrl?: string;
-  tahunPelajaranAktif?: string; // e.g. "2025/2026"
+  tahunPelajaranAktif?: string; // e.g. "2026/2027"
   semesterAktif?: 'Ganjil' | 'Genap' | '1' | '2';
   daftarTahunPelajaran?: string[];
   daftarKelas?: string[];

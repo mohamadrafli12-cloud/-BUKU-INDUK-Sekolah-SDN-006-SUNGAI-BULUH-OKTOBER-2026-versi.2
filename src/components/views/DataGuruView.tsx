@@ -2258,7 +2258,7 @@ export const DataGuruView: React.FC<DataGuruViewProps> = ({
         <KopSuratHeader
           schoolProfile={schoolProfile}
           documentTitle="DAFTAR REKAPITULASI PENDIDIK & TENAGA KEPENDIDIKAN (PTK)"
-          documentSubtitle={`TAHUN PELAJARAN ${schoolProfile.tahunPelajaranAktif || '2025/2026'}`}
+          documentSubtitle={`TAHUN PELAJARAN ${schoolProfile.tahunPelajaranAktif || '2026/2027'}`}
         />
 
         <div className="my-2 flex justify-between items-center text-[10px] font-sans text-slate-700">

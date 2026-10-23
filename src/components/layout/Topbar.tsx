@@ -234,7 +234,7 @@ export const Topbar: React.FC<TopbarProps> = ({
             <div className="flex flex-col items-start leading-tight">
               <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Tahun Ajaran Aktif</span>
               <span className="font-extrabold text-blue-700 dark:text-blue-300">
-                {schoolProfile.tahunPelajaranAktif || '2025/2026'} • {schoolProfile.semesterAktif || 'Ganjil'}
+                {schoolProfile.tahunPelajaranAktif || '2026/2027'} • {schoolProfile.semesterAktif || 'Ganjil'}
               </span>
             </div>
           </button>

@@ -32,7 +32,7 @@ export const MutasiView: React.FC<MutasiViewProps> = ({
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Filter Tahun Pelajaran Aktif (default to activeTP, or 'ALL')
-  const activeTP = schoolProfile.tahunPelajaranAktif || '2025/2026';
+  const activeTP = schoolProfile.tahunPelajaranAktif || '2026/2027';
   const [selectedTahunPelajaran, setSelectedTahunPelajaran] = useState<string>(activeTP);
 
   // All mutated students (all-time)
@@ -251,7 +251,7 @@ export const MutasiView: React.FC<MutasiViewProps> = ({
             className="w-full bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-hidden cursor-pointer"
           >
             <option value={activeTP}>Tahun Aktif: {activeTP}</option>
-            {(schoolProfile.daftarTahunPelajaran || ['2023/2024', '2024/2025', '2025/2026', '2026/2027'])
+            {(schoolProfile.daftarTahunPelajaran || ['2023/2024', '2024/2025', '2025/2026', '2026/2027', '2027/2028'])
               .filter(tp => tp !== activeTP)
               .map(tp => (
                 <option key={tp} value={tp}>Tahun Pelajaran {tp}</option>

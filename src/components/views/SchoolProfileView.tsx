@@ -57,7 +57,7 @@ export const SchoolProfileView: React.FC<SchoolProfileViewProps> = ({
     logActivity 
   } = useSchool();
 
-  const defaultTPList = ['2023/2024', '2024/2025', '2025/2026', '2026/2027'];
+  const defaultTPList = ['2023/2024', '2024/2025', '2025/2026', '2026/2027', '2027/2028'];
 
   const [formData, setFormData] = useState<SchoolProfile>(() => ({
     ...schoolProfile,
@@ -74,7 +74,7 @@ export const SchoolProfileView: React.FC<SchoolProfileViewProps> = ({
     website: schoolProfile.website || '',
     telepon: schoolProfile.telepon || '',
     kodePos: schoolProfile.kodePos || '',
-    tahunPelajaranAktif: schoolProfile.tahunPelajaranAktif || '2025/2026',
+    tahunPelajaranAktif: schoolProfile.tahunPelajaranAktif || '2026/2027',
     semesterAktif: schoolProfile.semesterAktif || 'Ganjil',
     daftarTahunPelajaran: schoolProfile.daftarTahunPelajaran && schoolProfile.daftarTahunPelajaran.length > 0
       ? schoolProfile.daftarTahunPelajaran
@@ -104,7 +104,7 @@ export const SchoolProfileView: React.FC<SchoolProfileViewProps> = ({
       website: schoolProfile.website || '',
       telepon: schoolProfile.telepon || '',
       kodePos: schoolProfile.kodePos || '',
-      tahunPelajaranAktif: schoolProfile.tahunPelajaranAktif || '2025/2026',
+      tahunPelajaranAktif: schoolProfile.tahunPelajaranAktif || '2026/2027',
       semesterAktif: schoolProfile.semesterAktif || 'Ganjil',
       daftarTahunPelajaran: schoolProfile.daftarTahunPelajaran && schoolProfile.daftarTahunPelajaran.length > 0
         ? schoolProfile.daftarTahunPelajaran
@@ -186,7 +186,7 @@ export const SchoolProfileView: React.FC<SchoolProfileViewProps> = ({
       telepon: prev.telepon || '(0760) 819203',
       email: prev.email || 'sdn006sungaibuluh@kemdikbud.go.id',
       website: prev.website || 'https://sdn006sungaibuluh.sch.id',
-      tahunPelajaranAktif: prev.tahunPelajaranAktif || '2025/2026',
+      tahunPelajaranAktif: prev.tahunPelajaranAktif || '2026/2027',
       semesterAktif: prev.semesterAktif || 'Ganjil',
     }));
   };
@@ -195,7 +195,7 @@ export const SchoolProfileView: React.FC<SchoolProfileViewProps> = ({
     e.preventDefault();
     const finalTP = (isManualTP && manualTPInput.trim()) 
       ? manualTPInput.trim() 
-      : (formData.tahunPelajaranAktif || '2025/2026');
+      : (formData.tahunPelajaranAktif || '2026/2027');
     const existingList = formData.daftarTahunPelajaran && formData.daftarTahunPelajaran.length > 0
       ? formData.daftarTahunPelajaran
       : defaultTPList;
@@ -983,7 +983,7 @@ export const SchoolProfileView: React.FC<SchoolProfileViewProps> = ({
                   <select
                     id="input-tahunPelajaranAktif"
                     disabled={currentRole === 'umum'}
-                    value={formData.tahunPelajaranAktif || '2025/2026'}
+                    value={formData.tahunPelajaranAktif || '2026/2027'}
                     onChange={(e) => {
                       if (e.target.value === '__manual__') {
                         setIsManualTP(true);

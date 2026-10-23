@@ -20,7 +20,7 @@ export const RaportInputModal: React.FC<RaportInputModalProps> = ({
   const { schoolProfile, getWaliKelasForClass, getKepalaSekolah } = useSchool();
   const [semester, setSemester] = useState<number>(11);
   const [kelas, setKelas] = useState<string>('Kelas 6');
-  const [tahunAjaran, setTahunAjaran] = useState<string>(schoolProfile.tahunPelajaranAktif || '2025/2026');
+  const [tahunAjaran, setTahunAjaran] = useState<string>(schoolProfile.tahunPelajaranAktif || '2026/2027');
   const [grades, setGrades] = useState<SubjectGrade[]>([]);
   const [sakit, setSakit] = useState<number>(0);
   const [izin, setIzin] = useState<number>(0);
@@ -83,7 +83,7 @@ export const RaportInputModal: React.FC<RaportInputModalProps> = ({
           predikat: 'B',
         }));
         setKelas(student.kelasSekarang || 'Kelas 6');
-        setTahunAjaran(schoolProfile.tahunPelajaranAktif || '2025/2026');
+        setTahunAjaran(schoolProfile.tahunPelajaranAktif || '2026/2027');
         setGrades(defaultGrades);
         setSakit(0);
         setIzin(0);
@@ -190,10 +190,10 @@ export const RaportInputModal: React.FC<RaportInputModalProps> = ({
               value={tahunAjaran}
               onChange={(e) => setTahunAjaran(e.target.value)}
               className="px-2.5 py-1.5 w-32 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono font-bold"
-              placeholder="cth: 2025/2026"
+              placeholder="cth: 2026/2027"
             />
             <datalist id="daftar-tp-raport">
-              {(schoolProfile.daftarTahunPelajaran || ['2023/2024', '2024/2025', '2025/2026', '2026/2027']).map(tp => (
+              {(schoolProfile.daftarTahunPelajaran || ['2023/2024', '2024/2025', '2025/2026', '2026/2027', '2027/2028']).map(tp => (
                 <option key={tp} value={tp} />
               ))}
             </datalist>

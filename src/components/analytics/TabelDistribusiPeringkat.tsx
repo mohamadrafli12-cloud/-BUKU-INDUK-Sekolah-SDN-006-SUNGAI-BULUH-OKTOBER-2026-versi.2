@@ -34,11 +34,11 @@ export const TabelDistribusiPeringkat: React.FC<TabelDistribusiPeringkatProps> =
   const { schoolProfile, students, currentRole } = useSchool();
 
   // Active TP from profile
-  const defaultTP = schoolProfile.tahunPelajaranAktif || '2025/2026';
+  const defaultTP = schoolProfile.tahunPelajaranAktif || '2026/2027';
   const defaultSemester = schoolProfile.semesterAktif || 'Ganjil';
   const tpOptions = schoolProfile.daftarTahunPelajaran && schoolProfile.daftarTahunPelajaran.length > 0 
     ? schoolProfile.daftarTahunPelajaran 
-    : ['2023/2024', '2024/2025', '2025/2026', '2026/2027'];
+    : ['2023/2024', '2024/2025', '2025/2026', '2026/2027', '2027/2028'];
 
   const [selectedTP, setSelectedTP] = useState<string>(defaultTP);
   const [selectedSemester, setSelectedSemester] = useState<'Ganjil' | 'Genap'>(

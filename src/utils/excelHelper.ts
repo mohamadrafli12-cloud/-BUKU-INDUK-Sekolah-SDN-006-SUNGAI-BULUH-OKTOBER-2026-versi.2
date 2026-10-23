@@ -1734,7 +1734,7 @@ export function exportRombelToExcel(options: ExportRombelExcelOptions): void {
     schoolProfile,
     students,
     kelasName,
-    activeTP = schoolProfile.tahunPelajaranAktif || '2025/2026',
+    activeTP = schoolProfile.tahunPelajaranAktif || '2026/2027',
     activeSemester = schoolProfile.semesterAktif || 'Ganjil',
     waliKelasName = 'Wali Kelas',
     waliKelasNip = '-',
@@ -2147,7 +2147,7 @@ export const SAMPLE_MUTASI_ROWS = [
     'Mengikuti Orang Tua',
     'WINARNI,S.Pd.SD',
     '19790301 200801 2 017',
-    '2025/2026',
+    '2026/2027',
     'Surat Keterangan Pindah Sekolah resmi telah diterbitkan.',
   ],
   [
@@ -2171,7 +2171,7 @@ export const SAMPLE_MUTASI_ROWS = [
     'Pindah Domisili Keluarga',
     'WINARNI,S.Pd.SD',
     '19790301 200801 2 017',
-    '2025/2026',
+    '2026/2027',
     'Buku Induk dan rapor telah diserahterimakan.',
   ],
 ];
@@ -2317,7 +2317,7 @@ export const MUTASI_TEMPLATE_INSTRUCTIONS = [
     NO: 20,
     KOLOM: 'Tahun Pelajaran Mutasi',
     KETERANGAN: 'Tahun pelajaran saat mutasi keluar dilakukan.',
-    CONTOH: '2025/2026',
+    CONTOH: '2026/2027',
     STATUS: 'Disarankan',
   },
   {
@@ -2341,7 +2341,7 @@ export const downloadMutasiExcelTemplate = (
   const desa = schoolProfile?.desaKelurahan || schoolProfile?.desa || 'Sungai Buluh';
   const kepsek = schoolProfile?.namaKepalaSekolah || 'WINARNI,S.Pd.SD';
   const nipKepsek = schoolProfile?.nipKepalaSekolah || '19790301 200801 2 017';
-  const tp = schoolProfile?.tahunPelajaranAktif || '2025/2026';
+  const tp = schoolProfile?.tahunPelajaranAktif || '2026/2027';
 
   // Customize demo row 1 with actual school defaults
   const customSample1 = [

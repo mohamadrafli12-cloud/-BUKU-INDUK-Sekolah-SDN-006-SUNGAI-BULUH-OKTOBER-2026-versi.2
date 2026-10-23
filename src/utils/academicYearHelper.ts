@@ -5,13 +5,13 @@ import { getAcademicYearFromDate } from '../lib/utils';
  * Mengambil tahun awal dari format Tahun Pelajaran (misal: "2025/2026" -> 2025, "2024" -> 2024)
  */
 export function getAcademicYearStart(tp?: string): number {
-  if (!tp) return 2025;
+  if (!tp) return 2026;
   const clean = tp.trim();
   const match = clean.match(/^(\d{4})/);
   if (match) {
     return parseInt(match[1], 10);
   }
-  return 2025;
+  return 2026;
 }
 
 /**
@@ -117,16 +117,16 @@ export interface ProjectedStudent extends Student {
 export function projectStudentForAcademicYear(
   student: Student,
   targetTP: string,
-  baseSchoolTP: string = '2025/2026'
+  baseSchoolTP: string = '2026/2027'
 ): ProjectedStudent {
   const targetYear = getAcademicYearStart(targetTP);
   
-  // Tahun Pelajaran dasar/acuan tempat data kelasSekarang tersimpan (default: "2025/2026")
-  const baseYear = getAcademicYearStart(student.tahunPelajaranKelasSekarang || baseSchoolTP || '2025/2026');
+  // Tahun Pelajaran dasar/acuan tempat data kelasSekarang tersimpan (default: "2026/2027")
+  const baseYear = getAcademicYearStart(student.tahunPelajaranKelasSekarang || baseSchoolTP || '2026/2027');
   const diffYears = targetYear - baseYear;
 
   // Tahun Masuk (Tahun Diterima di SD)
-  let admissionYear = 2025;
+  let admissionYear = 2026;
   if (student.tanggalDiterima) {
     const tpMasuk = getAcademicYearFromDate(student.tanggalDiterima);
     admissionYear = getAcademicYearStart(tpMasuk);
@@ -244,7 +244,7 @@ export function projectStudentForAcademicYear(
 export function projectStudentsForAcademicYear(
   students: Student[],
   targetTP: string,
-  baseSchoolTP: string = '2025/2026'
+  baseSchoolTP: string = '2026/2027'
 ): ProjectedStudent[] {
   return students.map(s => projectStudentForAcademicYear(s, targetTP, baseSchoolTP));
 }

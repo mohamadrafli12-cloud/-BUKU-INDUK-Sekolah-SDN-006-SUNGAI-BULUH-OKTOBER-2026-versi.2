@@ -305,7 +305,7 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
                       schoolProfile,
                       students,
                       kelasName: selectedClass,
-                      activeTP: schoolProfile.tahunPelajaranAktif || '2025/2026',
+                      activeTP: schoolProfile.tahunPelajaranAktif || '2026/2027',
                       activeSemester: schoolProfile.semesterAktif || 'Ganjil',
                       waliKelasName: waliNama,
                       waliKelasNip: waliNip,
@@ -935,7 +935,7 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
         <KopSuratHeader
           schoolProfile={schoolProfile}
           documentTitle="BUKU REGISTER INDUK PESERTA DIDIK"
-          documentSubtitle={`DAFTAR REKAPITULASI PESERTA DIDIK ${selectedClass !== 'ALL' ? `(${selectedClass.toUpperCase()})` : 'SEMUA TINGKAT KELAS'} - TAHUN PELAJARAN ${schoolProfile.tahunPelajaranAktif || '2025/2026'}`}
+          documentSubtitle={`DAFTAR REKAPITULASI PESERTA DIDIK ${selectedClass !== 'ALL' ? `(${selectedClass.toUpperCase()})` : 'SEMUA TINGKAT KELAS'} - TAHUN PELAJARAN ${schoolProfile.tahunPelajaranAktif || '2026/2027'}`}
         />
 
         <div className="my-2 flex justify-between items-center text-[10px] font-sans text-slate-700">

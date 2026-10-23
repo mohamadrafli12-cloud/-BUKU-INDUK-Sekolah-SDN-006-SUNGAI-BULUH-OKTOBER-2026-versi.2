@@ -385,8 +385,11 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [students, setStudents] = useState<Student[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_STUDENTS);
-      const list = saved ? JSON.parse(saved) : initialStudents;
-      return (list || []).map((s: Student) => ({
+      const list: Student[] = saved ? JSON.parse(saved) : initialStudents;
+      const existingIds = new Set((list || []).map((s: Student) => s.id));
+      const missingInitial = initialStudents.filter(s => !existingIds.has(s.id));
+      const combined = [...(list || []), ...missingInitial];
+      return combined.map((s: Student) => ({
         ...s,
         diterimaDiKelas: sanitizeDiterimaDiKelas(s.diterimaDiKelas),
       }));
@@ -455,9 +458,15 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const saved = localStorage.getItem(STORAGE_KEY_SCHOOL);
       if (saved) {
         const parsed = JSON.parse(saved);
+        const rawTP = parsed.tahunPelajaranAktif;
+        const finalTP = (!rawTP || rawTP === '2025/2026') ? '2026/2027' : rawTP;
         const merged: SchoolProfile = {
           ...initialSchoolProfile,
           ...parsed,
+          tahunPelajaranAktif: finalTP,
+          daftarTahunPelajaran: parsed.daftarTahunPelajaran && parsed.daftarTahunPelajaran.includes('2026/2027')
+            ? parsed.daftarTahunPelajaran
+            : ['2023/2024', '2024/2025', '2025/2026', '2026/2027', '2027/2028'],
           alamatJalan: parsed.alamatJalan || parsed.alamatSekolah || initialSchoolProfile.alamatJalan,
           alamatSekolah: parsed.alamatSekolah || parsed.alamatJalan || initialSchoolProfile.alamatSekolah,
           desaKelurahan: parsed.desaKelurahan || parsed.desa || initialSchoolProfile.desaKelurahan,

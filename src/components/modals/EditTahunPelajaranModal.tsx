@@ -31,11 +31,11 @@ export const EditTahunPelajaranModal: React.FC<EditTahunPelajaranModalProps> = (
 }) => {
   const { schoolProfile, updateSchoolProfile, logActivity, currentRole, students, addOrUpdateRaport } = useSchool();
 
-  const currentTP = schoolProfile.tahunPelajaranAktif || '2025/2026';
+  const currentTP = schoolProfile.tahunPelajaranAktif || '2026/2027';
   const currentSemester = schoolProfile.semesterAktif || 'Ganjil';
   const tpList = schoolProfile.daftarTahunPelajaran && schoolProfile.daftarTahunPelajaran.length > 0 
     ? schoolProfile.daftarTahunPelajaran 
-    : ['2023/2024', '2024/2025', '2025/2026', '2026/2027'];
+    : ['2023/2024', '2024/2025', '2025/2026', '2026/2027', '2027/2028'];
 
   const [activeTP, setActiveTP] = useState<string>(initialSelectedTP || currentTP);
   const [activeSemester, setActiveSemester] = useState<'Ganjil' | 'Genap'>(

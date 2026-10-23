@@ -60,7 +60,7 @@ export function getAcademicYearFromDate(dateString?: string): string {
     return `${y}/${y + 1}`;
   }
 
-  // Format YYYY-MM-DD
+  // Format YYYY-MM-DD atau ISO string
   const m1 = clean.match(/^(\d{4})-(\d{2})/);
   if (m1) {
     const y = parseInt(m1[1], 10);
@@ -68,11 +68,33 @@ export function getAcademicYearFromDate(dateString?: string): string {
     return m >= 7 ? `${y}/${y + 1}` : `${y - 1}/${y}`;
   }
 
-  // Format DD/MM/YYYY
-  const m2 = clean.match(/^\d{2}[/-](\d{2})[/-](\d{4})/);
+  // Format DD/MM/YYYY atau DD-MM-YYYY
+  const m2 = clean.match(/^\d{1,2}[/-](\d{1,2})[/-](\d{4})/);
   if (m2) {
     const m = parseInt(m2[1], 10);
     const y = parseInt(m2[2], 10);
+    return m >= 7 ? `${y}/${y + 1}` : `${y - 1}/${y}`;
+  }
+
+  // Format DD [Nama Bulan] YYYY (contoh: 15 Juli 2026, 10 Agustus 2026, Oktober 2026)
+  const indoMonths: Record<string, number> = {
+    januari: 1, jan: 1,
+    februari: 2, feb: 2,
+    maret: 3, mar: 3,
+    april: 4, apr: 4,
+    mei: 5,
+    juni: 6, jun: 6,
+    juli: 7, jul: 7,
+    agustus: 8, agu: 8, ags: 8,
+    september: 9, sep: 9,
+    oktober: 10, okt: 10,
+    november: 11, nov: 11,
+    desember: 12, des: 12,
+  };
+  const mIndo = clean.toLowerCase().match(/(\d{1,2})?\s*([a-z]+)\s*(\d{4})/);
+  if (mIndo && indoMonths[mIndo[2]]) {
+    const m = indoMonths[mIndo[2]];
+    const y = parseInt(mIndo[3], 10);
     return m >= 7 ? `${y}/${y + 1}` : `${y - 1}/${y}`;
   }
 
@@ -91,7 +113,7 @@ export function getAcademicYearFromDate(dateString?: string): string {
 }
 
 /**
- * Cek apakah tanggal atau tahun tertentu berada dalam Tahun Pelajaran tertentu (misal: "2025/2026")
+ * Cek apakah tanggal atau tahun tertentu berada dalam Tahun Pelajaran tertentu (misal: "2026/2027")
  */
 export function isInAcademicYear(dateOrYear?: string, targetAcademicYear?: string): boolean {
   if (!dateOrYear || !targetAcademicYear) return false;

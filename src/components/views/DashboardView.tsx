@@ -76,7 +76,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   } = useSchool();
 
   // Active TP & UI state
-  const activeTP = schoolProfile.tahunPelajaranAktif || '2025/2026';
+  const activeTP = schoolProfile.tahunPelajaranAktif || '2026/2027';
   const activeSemester = schoolProfile.semesterAktif || 'Ganjil';
   const [chartMode, setChartMode] = useState<'grouped' | 'stacked'>('grouped');
   const [isEditTPModalOpen, setIsEditTPModalOpen] = useState(false);

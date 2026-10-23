@@ -128,7 +128,7 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
     fontSize: 'sm',
     showKopSurat: true,
     customTitle: 'DAFTAR PESERTA DIDIK AKTIF',
-    customSubtitle: `SEMESTER ${schoolProfile.semesterAktif || 'Ganjil'} TAHUN PELAJARAN ${schoolProfile.tahunPelajaranAktif || '2025/2026'}`,
+    customSubtitle: `SEMESTER ${schoolProfile.semesterAktif || 'Ganjil'} TAHUN PELAJARAN ${schoolProfile.tahunPelajaranAktif || '2026/2027'}`,
     columns: {
       no: true,
       nis: true,
@@ -169,7 +169,7 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
   const [itemsPerPage, setItemsPerPage] = useState<number>(30);
 
   // Active School Year & TP List
-  const activeTP = schoolProfile.tahunPelajaranAktif || '2025/2026';
+  const activeTP = schoolProfile.tahunPelajaranAktif || '2026/2027';
   const activeSemester = schoolProfile.semesterAktif || 'Ganjil';
   const [isEditTPModalOpen, setIsEditTPModalOpen] = useState(false);
 
@@ -257,7 +257,7 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
   // Menjaga sinkronisasi data status siswa persis sama dengan Buku Induk
   // serta mengakomodasi draft edits rombel dan draft edits status siswa
   const projectedStudents = useMemo(() => {
-    const projected = projectStudentsForAcademicYear(students, activeTP, '2025/2026');
+    const projected = projectStudentsForAcademicYear(students, activeTP, '2026/2027');
     if (Object.keys(draftRombelEdits).length === 0 && Object.keys(draftStatusEdits).length === 0) return projected;
     return projected.map(s => {
       const draftClass = draftRombelEdits[s.id];
@@ -624,14 +624,14 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
     return activeStudents.filter(isStudentMutasiMasuk);
   }, [activeStudents]);
 
-  // Siswa mutasi masuk khusus pada Tahun Ajar Aktif (selain tahun aktif disembunyikan)
+  // Siswa mutasi masuk khusus pada Tahun Ajar Aktif (2026/2027) - selain tahun itu disembunyikan
   const studentsMutasiMasuk = useMemo(() => {
-    if (!filterMutasiOnlyActiveYear) return allMutasiMasukStudents;
     return allMutasiMasukStudents.filter(s => {
-      return isInAcademicYear(s.tanggalDiterima, activeTP) || 
-             (s.tahunMasuk && isInAcademicYear(s.tahunMasuk, activeTP));
+      const studentTP = getAcademicYearFromDate(s.tanggalDiterima) || 
+        (s.tahunMasuk && /^\d{4}$/.test(s.tahunMasuk.trim()) ? `${s.tahunMasuk}/${parseInt(s.tahunMasuk) + 1}` : s.tahunMasuk);
+      return studentTP === activeTP || isInAcademicYear(s.tanggalDiterima, activeTP);
     });
-  }, [allMutasiMasukStudents, activeTP, filterMutasiOnlyActiveYear]);
+  }, [allMutasiMasukStudents, activeTP]);
 
   // Jumlah siswa mutasi masuk tahun lain yang disembunyikan
   const hiddenMutasiMasukCount = allMutasiMasukStudents.length - studentsMutasiMasuk.length;
@@ -709,6 +709,7 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
       kelasSekarang: mutasiMasukForm.diterimaDiKelas,
       status: 'Aktif',
       tahunMasuk: activeTP.split('/')[0] || `${currentYear}`,
+      tahunPelajaranKelasSekarang: activeTP,
       raport: [],
     };
 
@@ -2836,7 +2837,7 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
             <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <h4 className="text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-blue-600" />
-                <span>Daftar Siswa Mutasi Masuk ({studentsMutasiMasuk.length} Siswa)</span>
+                <span>Daftar Siswa Mutasi Masuk TP {activeTP} ({studentsMutasiMasuk.length} Siswa)</span>
               </h4>
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-1 text-[11px] font-extrabold bg-blue-100 text-[#003399] dark:bg-blue-950 dark:text-blue-300 rounded-full flex items-center gap-1.5">
@@ -2847,27 +2848,24 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
             </div>
 
             {/* Banner Status Filter Tahun Ajar Aktif */}
-            <div className="px-5 py-2.5 bg-blue-50/60 dark:bg-blue-950/30 border-b border-blue-100 dark:border-blue-900/50 flex flex-col md:flex-row md:items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
-                <span className="font-bold text-blue-800 dark:text-blue-300">Kebijakan Tampilan:</span>
+            <div className="px-5 py-2.5 bg-blue-50/70 dark:bg-blue-950/40 border-b border-blue-100 dark:border-blue-900/50 flex flex-col md:flex-row md:items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+                <span className="font-extrabold text-blue-900 dark:text-blue-300">Kebijakan Tampilan:</span>
                 <span>
-                  {filterMutasiOnlyActiveYear 
-                    ? `Hanya menampilkan mutasi masuk pada Tahun Ajar Aktif (${activeTP}). Selain tahun itu disembunyikan.`
-                    : `Menampilkan seluruh riwayat siswa mutasi masuk (Semua Tahun).`}
+                  Hanya menampilkan mutasi masuk pada Tahun Ajar Aktif ({activeTP}). Selain tahun itu disembunyikan.
                 </span>
-                {hiddenMutasiMasukCount > 0 && filterMutasiOnlyActiveYear && (
+                {hiddenMutasiMasukCount > 0 && (
                   <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[10px] font-bold">
-                    {hiddenMutasiMasukCount} siswa tahun lain disembunyikan
+                    {hiddenMutasiMasukCount} siswa mutasi tahun lain disembunyikan
                   </span>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => setFilterMutasiOnlyActiveYear(!filterMutasiOnlyActiveYear)}
-                className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-800 text-blue-800 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/50 transition-colors cursor-pointer self-start md:self-auto shrink-0"
-              >
-                {filterMutasiOnlyActiveYear ? 'Lihat Semua Tahun' : `Hanya Tahun Aktif (${activeTP})`}
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Filter Aktif: TP {activeTP}</span>
+                </span>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -2889,12 +2887,10 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
                   {studentsMutasiMasuk.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="text-center py-8 text-slate-500">
-                        {filterMutasiOnlyActiveYear 
-                          ? `Tidak ada siswa mutasi masuk pada Tahun Ajar Aktif (${activeTP}).` 
-                          : 'Belum ada riwayat siswa mutasi masuk yang terdaftar.'}
-                        {hiddenMutasiMasukCount > 0 && filterMutasiOnlyActiveYear && (
+                        Tidak ada siswa mutasi masuk pada Tahun Ajar Aktif ({activeTP}).
+                        {hiddenMutasiMasukCount > 0 && (
                           <div className="mt-1 text-xs text-amber-600 dark:text-amber-400 font-medium">
-                            ({hiddenMutasiMasukCount} siswa terdaftar di tahun pelajaran lain disembunyikan sesuai filter aktif)
+                            ({hiddenMutasiMasukCount} siswa mutasi dari tahun pelajaran lain disembunyikan sesuai kebijakan tahun aktif)
                           </div>
                         )}
                       </td>
