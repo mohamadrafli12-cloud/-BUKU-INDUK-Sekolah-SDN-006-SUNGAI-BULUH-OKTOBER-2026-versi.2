@@ -624,8 +624,8 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
     return activeStudents.filter(isStudentMutasiMasuk);
   }, [activeStudents]);
 
-  // Siswa mutasi masuk khusus pada Tahun Ajar Aktif (2026/2027) - selain tahun itu disembunyikan
-  const studentsMutasiMasuk = useMemo(() => {
+  // Siswa mutasi masuk khusus pada Tahun Ajar Aktif (2026/2027)
+  const activeYearMutasiMasukStudents = useMemo(() => {
     return allMutasiMasukStudents.filter(s => {
       const studentTP = getAcademicYearFromDate(s.tanggalDiterima) || 
         (s.tahunMasuk && /^\d{4}$/.test(s.tahunMasuk.trim()) ? `${s.tahunMasuk}/${parseInt(s.tahunMasuk) + 1}` : s.tahunMasuk);
@@ -633,8 +633,13 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
     });
   }, [allMutasiMasukStudents, activeTP]);
 
+  // Siswa mutasi masuk yang ditampilkan (berdasarkan pilihan: Tahun Aktif vs Semua Tahun)
+  const studentsMutasiMasuk = useMemo(() => {
+    return filterMutasiOnlyActiveYear ? activeYearMutasiMasukStudents : allMutasiMasukStudents;
+  }, [filterMutasiOnlyActiveYear, activeYearMutasiMasukStudents, allMutasiMasukStudents]);
+
   // Jumlah siswa mutasi masuk tahun lain yang disembunyikan
-  const hiddenMutasiMasukCount = allMutasiMasukStudents.length - studentsMutasiMasuk.length;
+  const hiddenMutasiMasukCount = allMutasiMasukStudents.length - activeYearMutasiMasukStudents.length;
 
   const handleSubmitMutasiMasuk = (e: React.FormEvent) => {
     e.preventDefault();
@@ -2837,9 +2842,29 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
             <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <h4 className="text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-blue-600" />
-                <span>Daftar Siswa Mutasi Masuk TP {activeTP} ({studentsMutasiMasuk.length} Siswa)</span>
+                <span>
+                  {filterMutasiOnlyActiveYear 
+                    ? `Daftar Siswa Mutasi Masuk TP ${activeTP} (${studentsMutasiMasuk.length} Siswa)` 
+                    : `Daftar Siswa Mutasi Masuk (Semua Tahun) (${studentsMutasiMasuk.length} Siswa)`}
+                </span>
               </h4>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Tombol Lihat Semua Tahun / Hanya Tahun Aktif */}
+                <button
+                  type="button"
+                  onClick={() => setFilterMutasiOnlyActiveYear(!filterMutasiOnlyActiveYear)}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-extrabold rounded-xl border transition-all flex items-center gap-1.5 shadow-xs cursor-pointer",
+                    filterMutasiOnlyActiveYear
+                      ? "bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-slate-700"
+                      : "bg-[#003399] hover:bg-[#002266] text-white border-transparent"
+                  )}
+                  title={filterMutasiOnlyActiveYear ? "Lihat seluruh siswa mutasi masuk dari semua tahun pelajaran" : "Saring hanya untuk tahun pelajaran aktif"}
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>{filterMutasiOnlyActiveYear ? 'Lihat Semua Tahun' : 'Hanya Tahun Aktif'}</span>
+                </button>
+
                 <span className="px-2.5 py-1 text-[11px] font-extrabold bg-blue-100 text-[#003399] dark:bg-blue-950 dark:text-blue-300 rounded-full flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span>Tahun Ajar Aktif: {activeTP}</span>
@@ -2847,24 +2872,57 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
               </div>
             </div>
 
-            {/* Banner Status Filter Tahun Ajar Aktif */}
-            <div className="px-5 py-2.5 bg-blue-50/70 dark:bg-blue-950/40 border-b border-blue-100 dark:border-blue-900/50 flex flex-col md:flex-row md:items-center justify-between gap-2">
+            {/* Banner Status Filter Tahun Ajar Aktif / Semua Tahun */}
+            <div className={cn(
+              "px-5 py-2.5 border-b flex flex-col md:flex-row md:items-center justify-between gap-3",
+              filterMutasiOnlyActiveYear 
+                ? "bg-blue-50/70 dark:bg-blue-950/40 border-blue-100 dark:border-blue-900/50" 
+                : "bg-amber-50/70 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/50"
+            )}>
               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
-                <span className="font-extrabold text-blue-900 dark:text-blue-300">Kebijakan Tampilan:</span>
-                <span>
-                  Hanya menampilkan mutasi masuk pada Tahun Ajar Aktif ({activeTP}). Selain tahun itu disembunyikan.
+                <span className={cn(
+                  "font-extrabold flex items-center gap-1",
+                  filterMutasiOnlyActiveYear ? "text-blue-900 dark:text-blue-300" : "text-amber-900 dark:text-amber-300"
+                )}>
+                  <Filter className="w-3.5 h-3.5" />
+                  <span>Mode Tampilan:</span>
                 </span>
-                {hiddenMutasiMasukCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[10px] font-bold">
-                    {hiddenMutasiMasukCount} siswa mutasi tahun lain disembunyikan
-                  </span>
+                {filterMutasiOnlyActiveYear ? (
+                  <>
+                    <span>
+                      Hanya menampilkan mutasi masuk pada Tahun Ajar Aktif (<strong>{activeTP}</strong>). Selain tahun itu disembunyikan.
+                    </span>
+                    {hiddenMutasiMasukCount > 0 && (
+                      <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[10px] font-bold">
+                        {hiddenMutasiMasukCount} siswa mutasi tahun lain disembunyikan
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold text-amber-900 dark:text-amber-200">
+                      Menampilkan mutasi masuk dari <strong>Semua Tahun Pelajaran</strong> ({studentsMutasiMasuk.length} total siswa).
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 text-[10px] font-bold">
+                      {activeYearMutasiMasukStudents.length} siswa pada TP {activeTP}
+                    </span>
+                  </>
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Filter Aktif: TP {activeTP}</span>
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setFilterMutasiOnlyActiveYear(!filterMutasiOnlyActiveYear)}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-bold rounded-lg border transition-all flex items-center gap-1.5 shadow-xs cursor-pointer",
+                    filterMutasiOnlyActiveYear
+                      ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                      : "bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-600"
+                  )}
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>{filterMutasiOnlyActiveYear ? 'Lihat Semua Tahun' : 'Hanya Tahun Aktif (2026/2027)'}</span>
+                </button>
               </div>
             </div>
 
@@ -2887,11 +2945,29 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
                   {studentsMutasiMasuk.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="text-center py-8 text-slate-500">
-                        Tidak ada siswa mutasi masuk pada Tahun Ajar Aktif ({activeTP}).
-                        {hiddenMutasiMasukCount > 0 && (
-                          <div className="mt-1 text-xs text-amber-600 dark:text-amber-400 font-medium">
-                            ({hiddenMutasiMasukCount} siswa mutasi dari tahun pelajaran lain disembunyikan sesuai kebijakan tahun aktif)
+                        {filterMutasiOnlyActiveYear ? (
+                          <div className="space-y-2">
+                            <p className="font-semibold">Tidak ada siswa mutasi masuk pada Tahun Ajar Aktif ({activeTP}).</p>
+                            {hiddenMutasiMasukCount > 0 && (
+                              <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                                ({hiddenMutasiMasukCount} siswa mutasi dari tahun pelajaran lain disembunyikan sesuai kebijakan tahun aktif)
+                              </p>
+                            )}
+                            {hiddenMutasiMasukCount > 0 && (
+                              <div className="pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setFilterMutasiOnlyActiveYear(false)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 text-xs font-bold rounded-lg border border-blue-200 dark:border-blue-800 cursor-pointer transition-colors"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  <span>Lihat Semua Tahun ({allMutasiMasukStudents.length} siswa)</span>
+                                </button>
+                              </div>
+                            )}
                           </div>
+                        ) : (
+                          <p className="font-semibold">Belum ada riwayat siswa mutasi masuk yang terdaftar.</p>
                         )}
                       </td>
                     </tr>
