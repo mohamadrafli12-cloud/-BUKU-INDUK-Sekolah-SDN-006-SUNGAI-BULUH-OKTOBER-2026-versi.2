@@ -302,8 +302,8 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   }, [studentLogs]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-900/65 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-[97vw] lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1520px] max-h-[95vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Header Ribbon (BCA blue & gold badge) */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-[#003399] text-white">
           <div className="flex items-center gap-3.5">
@@ -771,7 +771,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                     </div>
 
                     {/* Grid Nomor Registrasi Pokok */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">No. Induk (NIS)</span>
                         <span className="font-mono text-sm font-extrabold text-blue-700 dark:text-blue-300">{student.noInduk}</span>
@@ -780,34 +780,30 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">NISN Resmi</span>
                         <span className="font-mono text-sm font-extrabold text-amber-600 dark:text-amber-400">{student.nisn}</span>
                       </div>
-                      <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs">
+                      <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs col-span-2 sm:col-span-1">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">NIK Siswa</span>
                         <span className="font-mono text-sm font-semibold text-slate-800 dark:text-slate-200">{student.nik}</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">No. Kartu Keluarga</span>
-                        <span className="font-mono text-sm font-semibold text-slate-800 dark:text-slate-200">{student.noKk || '-'}</span>
                       </div>
                     </div>
 
                     {/* Ringkasan Lahir & Identitas */}
-                    <div className="p-3.5 rounded-xl bg-white/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs space-y-2">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                        <span className="text-slate-500 font-medium">Tempat, Tanggal Lahir:</span>
-                        <span className="font-bold text-slate-800 dark:text-slate-200 sm:text-right">
-                          {student.tempatLahir}, {formatIndonesianDate(student.tanggalLahir)} {student.usia ? `(${student.usia} tahun)` : ''}
+                    <div className="p-3 rounded-xl bg-white/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">Tempat, Tanggal Lahir:</span>
+                        <span className="font-semibold text-slate-800 dark:text-slate-200 text-right">
+                          {student.tempatLahir}, {formatIndonesianDate(student.tanggalLahir)}
                         </span>
                       </div>
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                        <span className="text-slate-500 font-medium">Jenis Kelamin & Agama:</span>
-                        <span className="font-bold text-slate-800 dark:text-slate-200">
-                          {student.jenisKelamin === 'L' ? 'Laki-Laki (L)' : 'Perempuan (P)'} • Agama {student.agama}
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">Jenis Kelamin & Agama:</span>
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">
+                          {student.jenisKelamin === 'L' ? 'Laki-Laki (L)' : 'Perempuan (P)'} • {student.agama}
                         </span>
                       </div>
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                        <span className="text-slate-500 font-medium">Kewarganegaraan & Bahasa:</span>
-                        <span className="font-bold text-slate-800 dark:text-slate-200">
-                          {student.kewarganegaraan} • Bahasa Ibu: {student.bahasaIbu}
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">Kewarganegaraan & Bahasa:</span>
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">
+                          {student.kewarganegaraan} • {student.bahasaIbu}
                         </span>
                       </div>
                     </div>
@@ -815,95 +811,59 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 space-y-3">
-                  <h4 className="text-xs font-black text-blue-900 dark:text-blue-300 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200/80 dark:border-slate-700 pb-2.5">
-                    <UserCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                    <span>Keterangan Diri Siswa</span>
-                  </h4>
-                  <div className="space-y-0.5 text-xs">
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                      <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Nama Lengkap</span>
-                      <span className="font-bold text-slate-900 dark:text-slate-100 flex-1">{student.namaLengkap}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                      <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Nama Panggilan</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200 flex-1">{student.namaPanggilan || '-'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                      <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Jenis Kelamin</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200 flex-1">
-                        {student.jenisKelamin === 'L' ? 'Laki-Laki (L)' : 'Perempuan (P)'}
-                      </span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                      <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Tempat, Tanggal Lahir</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200 flex-1">
-                        {student.tempatLahir}, {formatIndonesianDate(student.tanggalLahir)} {student.usia ? `(${student.usia} tahun)` : ''}
-                      </span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                      <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Agama</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200 flex-1">{student.agama}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                      <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Kewarganegaraan</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200 flex-1">{student.kewarganegaraan}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                      <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Bahasa di Rumah</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200 flex-1">{student.bahasaIbu}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1">
-                      <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">No. Registrasi Akta Lahir</span>
-                      <span className="font-mono font-medium text-slate-700 dark:text-slate-300 flex-1">{student.noRegistrasiAktaLahir || '-'}</span>
-                    </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 space-y-3">
+                <h4 className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wider flex items-center gap-2">
+                  <UserCheck className="w-4 h-4" />
+                  <span>Keterangan Diri Siswa</span>
+                </h4>
+                <div className="grid grid-cols-2 gap-2 text-xs divide-y divide-slate-100 dark:divide-slate-800">
+                  <div className="py-1 text-slate-500">Nama Lengkap</div>
+                  <div className="py-1 font-bold text-slate-900 dark:text-slate-100">{student.namaLengkap}</div>
+                  <div className="py-1 text-slate-500">Nama Panggilan</div>
+                  <div className="py-1 font-semibold text-slate-800 dark:text-slate-200">{student.namaPanggilan || '-'}</div>
+                  <div className="py-1 text-slate-500">Jenis Kelamin</div>
+                  <div className="py-1 font-semibold text-slate-800 dark:text-slate-200">
+                    {student.jenisKelamin === 'L' ? 'Laki-Laki (L)' : 'Perempuan (P)'}
                   </div>
-                </div>
-
-                <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 space-y-3">
-                  <h4 className="text-xs font-black text-blue-900 dark:text-blue-300 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200/80 dark:border-slate-700 pb-2.5">
-                    <FileCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                    <span>Identitas Berkas & Keluarga</span>
-                  </h4>
-                  <div className="space-y-0.5 text-xs">
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                      <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">No. Induk Siswa (NIS)</span>
-                      <span className="font-mono font-bold text-blue-700 dark:text-blue-300 flex-1">{student.noInduk}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                      <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">NISN Kemdikbud</span>
-                      <span className="font-mono font-bold text-amber-600 dark:text-amber-400 flex-1">{student.nisn}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                      <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">NIK Siswa (Dukcapil)</span>
-                      <span className="font-mono font-semibold text-slate-800 dark:text-slate-200 flex-1">{student.nik}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                      <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">No. Kartu Keluarga (KK)</span>
-                      <span className="font-mono font-semibold text-slate-800 dark:text-slate-200 flex-1">{student.noKk || '-'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                      <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Kedudukan Anak</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200 flex-1">
-                        Anak ke-{student.anakKe} dari { (student.jumlahSaudaraKandung || 0) + 1 } bersaudara
-                      </span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                      <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Status Keberadaan</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200 flex-1">{student.statusKeluarga}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                      <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">No. HP / WhatsApp Siswa</span>
-                      <span className="font-semibold text-blue-700 dark:text-blue-300 flex-1">{student.noHpSiswa || '-'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1">
-                      <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Email Siswa</span>
-                      <span className="text-slate-700 dark:text-slate-300 flex-1">{student.emailSiswa || '-'}</span>
-                    </div>
+                  <div className="py-1 text-slate-500">Tempat, Tanggal Lahir</div>
+                  <div className="py-1 font-semibold text-slate-800 dark:text-slate-200">
+                    {student.tempatLahir}, {formatIndonesianDate(student.tanggalLahir)}
                   </div>
+                  <div className="py-1 text-slate-500">Agama</div>
+                  <div className="py-1 font-semibold text-slate-800 dark:text-slate-200">{student.agama}</div>
+                  <div className="py-1 text-slate-500">Kewarganegaraan</div>
+                  <div className="py-1 font-semibold text-slate-800 dark:text-slate-200">{student.kewarganegaraan}</div>
+                  <div className="py-1 text-slate-500">Bahasa di Rumah</div>
+                  <div className="py-1 font-semibold text-slate-800 dark:text-slate-200">{student.bahasaIbu}</div>
                 </div>
               </div>
+
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 space-y-3">
+                <h4 className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wider flex items-center gap-2">
+                  <FileCheck className="w-4 h-4" />
+                  <span>Identitas Berkas & Keluarga</span>
+                </h4>
+                <div className="grid grid-cols-2 gap-2 text-xs divide-y divide-slate-100 dark:divide-slate-800">
+                  <div className="py-1 text-slate-500">No. Induk (NIS)</div>
+                  <div className="py-1 font-mono font-bold text-blue-700 dark:text-blue-300">{student.noInduk}</div>
+                  <div className="py-1 text-slate-500">NISN</div>
+                  <div className="py-1 font-mono font-bold text-amber-600 dark:text-amber-400">{student.nisn}</div>
+                  <div className="py-1 text-slate-500">NIK Siswa</div>
+                  <div className="py-1 font-mono font-semibold text-slate-800 dark:text-slate-200">{student.nik}</div>
+                  <div className="py-1 text-slate-500">No. Kartu Keluarga (KK)</div>
+                  <div className="py-1 font-mono font-semibold text-slate-800 dark:text-slate-200">{student.noKk || '-'}</div>
+                  <div className="py-1 text-slate-500">Anak Ke-</div>
+                  <div className="py-1 font-semibold text-slate-800 dark:text-slate-200">
+                    {student.anakKe} dari { (student.jumlahSaudaraKandung || 0) + 1 } bersaudara
+                  </div>
+                  <div className="py-1 text-slate-500">Status Keberadaan Keluarga</div>
+                  <div className="py-1 font-semibold text-slate-800 dark:text-slate-200">{student.statusKeluarga}</div>
+                  <div className="py-1 text-slate-500">No. HP / WA Siswa</div>
+                  <div className="py-1 font-semibold text-slate-800 dark:text-slate-200">{student.noHpSiswa || '-'}</div>
+                </div>
+              </div>
+            </div>
 
             {/* Kartu Status & Kepesertaan Bantuan Siswa (No. 6) */}
             <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50/70 to-indigo-50/50 dark:from-blue-950/40 dark:to-indigo-950/30 space-y-3">
@@ -1194,212 +1154,56 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
           {/* TAB 2: ORANG TUA & ALAMAT */}
           {activeTab === 'keluarga' && (
-            <div className="space-y-6">
-              <div className={cn(
-                "grid gap-6",
-                student.wali?.nama ? "grid-cols-1 lg:grid-cols-3" : "grid-cols-1 md:grid-cols-2"
-              )}>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Data Ayah */}
-                <div className="p-5 rounded-2xl border border-blue-200 dark:border-blue-900 bg-blue-50/30 dark:bg-blue-950/20 space-y-3">
-                  <h4 className="text-xs font-black text-blue-900 dark:text-blue-300 uppercase tracking-wider flex items-center gap-2 border-b border-blue-200/80 dark:border-blue-900 pb-2.5">
-                    <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                    <span>Data Ayah Kandung</span>
-                  </h4>
-                  <div className="space-y-0.5 text-xs">
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-blue-100 dark:border-blue-900/40">
-                      <span className="w-full sm:w-40 text-slate-500 dark:text-slate-400 font-medium shrink-0">Nama Lengkap Ayah</span>
-                      <strong className="text-slate-900 dark:text-slate-100 flex-1 font-bold">{student.ayah.nama || '-'}</strong>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-blue-100 dark:border-blue-900/40">
-                      <span className="w-full sm:w-40 text-slate-500 dark:text-slate-400 font-medium shrink-0">NIK Ayah</span>
-                      <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold flex-1">{student.ayah.nik || '-'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-blue-100 dark:border-blue-900/40">
-                      <span className="w-full sm:w-40 text-slate-500 dark:text-slate-400 font-medium shrink-0">Tahun Lahir</span>
-                      <span className="text-slate-800 dark:text-slate-200 font-semibold flex-1">{student.ayah.tahunLahir || '-'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-blue-100 dark:border-blue-900/40">
-                      <span className="w-full sm:w-40 text-slate-500 dark:text-slate-400 font-medium shrink-0">Pendidikan Terakhir</span>
-                      <span className="text-slate-800 dark:text-slate-200 font-semibold flex-1">{student.ayah.pendidikan || '-'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-blue-100 dark:border-blue-900/40">
-                      <span className="w-full sm:w-40 text-slate-500 dark:text-slate-400 font-medium shrink-0">Pekerjaan Pokok</span>
-                      <span className="text-slate-800 dark:text-slate-200 font-semibold flex-1">{student.ayah.pekerjaan || '-'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-blue-100 dark:border-blue-900/40">
-                      <span className="w-full sm:w-40 text-slate-500 dark:text-slate-400 font-medium shrink-0">Penghasilan Bulanan</span>
-                      <span className="text-slate-800 dark:text-slate-200 font-semibold flex-1">{student.ayah.penghasilanBulanan || '-'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1">
-                      <span className="w-full sm:w-40 text-slate-500 dark:text-slate-400 font-medium shrink-0">No. Telepon / HP</span>
-                      <strong className="text-blue-700 dark:text-blue-300 font-bold flex-1">{student.ayah.noHp || '-'}</strong>
-                    </div>
+                <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/30 dark:bg-blue-950/20 space-y-2">
+                  <h4 className="text-xs font-bold text-blue-900 dark:text-blue-300 uppercase">Data Ayah Kandung</h4>
+                  <div className="space-y-1.5 text-xs">
+                    <div><span className="text-slate-500">Nama:</span> <strong className="text-slate-800 dark:text-slate-100">{student.ayah.nama}</strong></div>
+                    <div><span className="text-slate-500">NIK:</span> <span className="font-mono text-slate-700 dark:text-slate-300">{student.ayah.nik}</span></div>
+                    <div><span className="text-slate-500">Pendidikan:</span> <span>{student.ayah.pendidikan}</span></div>
+                    <div><span className="text-slate-500">Pekerjaan:</span> <span>{student.ayah.pekerjaan}</span></div>
+                    <div><span className="text-slate-500">Penghasilan:</span> <span>{student.ayah.penghasilanBulanan}</span></div>
+                    <div><span className="text-slate-500">No. HP:</span> <strong className="text-blue-600">{student.ayah.noHp || '-'}</strong></div>
                   </div>
                 </div>
 
                 {/* Data Ibu */}
-                <div className="p-5 rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50/30 dark:bg-rose-950/20 space-y-3">
-                  <h4 className="text-xs font-black text-rose-900 dark:text-rose-300 uppercase tracking-wider flex items-center gap-2 border-b border-rose-200/80 dark:border-rose-900 pb-2.5">
-                    <User className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                    <span>Data Ibu Kandung</span>
-                  </h4>
-                  <div className="space-y-0.5 text-xs">
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-rose-100 dark:border-rose-900/40">
-                      <span className="w-full sm:w-40 text-slate-500 dark:text-slate-400 font-medium shrink-0">Nama Lengkap Ibu</span>
-                      <strong className="text-slate-900 dark:text-slate-100 flex-1 font-bold">{student.ibu.nama || '-'}</strong>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-rose-100 dark:border-rose-900/40">
-                      <span className="w-full sm:w-40 text-slate-500 dark:text-slate-400 font-medium shrink-0">NIK Ibu</span>
-                      <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold flex-1">{student.ibu.nik || '-'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-rose-100 dark:border-rose-900/40">
-                      <span className="w-full sm:w-40 text-slate-500 dark:text-slate-400 font-medium shrink-0">Tahun Lahir</span>
-                      <span className="text-slate-800 dark:text-slate-200 font-semibold flex-1">{student.ibu.tahunLahir || '-'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-rose-100 dark:border-rose-900/40">
-                      <span className="w-full sm:w-40 text-slate-500 dark:text-slate-400 font-medium shrink-0">Pendidikan Terakhir</span>
-                      <span className="text-slate-800 dark:text-slate-200 font-semibold flex-1">{student.ibu.pendidikan || '-'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-rose-100 dark:border-rose-900/40">
-                      <span className="w-full sm:w-40 text-slate-500 dark:text-slate-400 font-medium shrink-0">Pekerjaan Pokok</span>
-                      <span className="text-slate-800 dark:text-slate-200 font-semibold flex-1">{student.ibu.pekerjaan || '-'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-rose-100 dark:border-rose-900/40">
-                      <span className="w-full sm:w-40 text-slate-500 dark:text-slate-400 font-medium shrink-0">Penghasilan Bulanan</span>
-                      <span className="text-slate-800 dark:text-slate-200 font-semibold flex-1">{student.ibu.penghasilanBulanan || '-'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1">
-                      <span className="w-full sm:w-40 text-slate-500 dark:text-slate-400 font-medium shrink-0">No. Telepon / HP</span>
-                      <strong className="text-rose-700 dark:text-rose-300 font-bold flex-1">{student.ibu.noHp || '-'}</strong>
-                    </div>
+                <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/30 dark:bg-rose-950/20 space-y-2">
+                  <h4 className="text-xs font-bold text-rose-900 dark:text-rose-300 uppercase">Data Ibu Kandung</h4>
+                  <div className="space-y-1.5 text-xs">
+                    <div><span className="text-slate-500">Nama:</span> <strong className="text-slate-800 dark:text-slate-100">{student.ibu.nama}</strong></div>
+                    <div><span className="text-slate-500">NIK:</span> <span className="font-mono text-slate-700 dark:text-slate-300">{student.ibu.nik}</span></div>
+                    <div><span className="text-slate-500">Pendidikan:</span> <span>{student.ibu.pendidikan}</span></div>
+                    <div><span className="text-slate-500">Pekerjaan:</span> <span>{student.ibu.pekerjaan}</span></div>
+                    <div><span className="text-slate-500">Penghasilan:</span> <span>{student.ibu.penghasilanBulanan}</span></div>
+                    <div><span className="text-slate-500">No. HP:</span> <strong className="text-rose-600">{student.ibu.noHp || '-'}</strong></div>
                   </div>
                 </div>
-
-                {/* Data Wali jika ada */}
-                {student.wali?.nama && (
-                  <div className="p-5 rounded-2xl border border-amber-200 dark:border-amber-900 bg-amber-50/30 dark:bg-amber-950/20 space-y-3">
-                    <h4 className="text-xs font-black text-amber-900 dark:text-amber-300 uppercase tracking-wider flex items-center gap-2 border-b border-amber-200/80 dark:border-amber-900 pb-2.5">
-                      <User className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                      <span>Data Wali Siswa</span>
-                    </h4>
-                    <div className="space-y-0.5 text-xs">
-                      <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-amber-100 dark:border-amber-900/40">
-                        <span className="w-full sm:w-40 text-slate-500 dark:text-slate-400 font-medium shrink-0">Nama Lengkap Wali</span>
-                        <strong className="text-slate-900 dark:text-slate-100 flex-1 font-bold">{student.wali.nama}</strong>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-amber-100 dark:border-amber-900/40">
-                        <span className="w-full sm:w-40 text-slate-500 dark:text-slate-400 font-medium shrink-0">NIK Wali</span>
-                        <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold flex-1">{student.wali.nik || '-'}</span>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-amber-100 dark:border-amber-900/40">
-                        <span className="w-full sm:w-40 text-slate-500 dark:text-slate-400 font-medium shrink-0">Pendidikan Terakhir</span>
-                        <span className="text-slate-800 dark:text-slate-200 font-semibold flex-1">{student.wali.pendidikan || '-'}</span>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-amber-100 dark:border-amber-900/40">
-                        <span className="w-full sm:w-40 text-slate-500 dark:text-slate-400 font-medium shrink-0">Pekerjaan Pokok</span>
-                        <span className="text-slate-800 dark:text-slate-200 font-semibold flex-1">{student.wali.pekerjaan || '-'}</span>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-amber-100 dark:border-amber-900/40">
-                        <span className="w-full sm:w-40 text-slate-500 dark:text-slate-400 font-medium shrink-0">Penghasilan Bulanan</span>
-                        <span className="text-slate-800 dark:text-slate-200 font-semibold flex-1">{student.wali.penghasilanBulanan || '-'}</span>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1">
-                        <span className="w-full sm:w-40 text-slate-500 dark:text-slate-400 font-medium shrink-0">No. Telepon / HP</span>
-                        <strong className="text-amber-700 dark:text-amber-300 font-bold flex-1">{student.wali.noHp || '-'}</strong>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Alamat Lengkap */}
-              <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 space-y-4">
-                <h4 className="text-xs font-black text-slate-900 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200 dark:border-slate-700 pb-2.5">
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 space-y-2">
+                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-amber-500" />
-                  <span>Alamat Tempat Tinggal & Aksesibilitas Siswa</span>
+                  <span>Alamat Tempat Tinggal</span>
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-xs">
-                  {/* Kolom 1: Alamat Administrasi */}
-                  <div className="space-y-2 p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/80">
-                    <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 block uppercase tracking-wide">
-                      Wilayah Tempat Tinggal
-                    </span>
-                    <div className="space-y-1">
-                      <p className="text-slate-500 text-[11px]">Jalan / Rumah:</p>
-                      <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{student.alamat}</p>
-                    </div>
-                    <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 space-y-1">
-                      <p className="text-slate-600 dark:text-slate-300">
-                        <strong className="text-slate-800 dark:text-slate-200">RT / RW:</strong> RT {student.rt} / RW {student.rw}
-                      </p>
-                      {student.dusun && (
-                        <p className="text-slate-600 dark:text-slate-300">
-                          <strong className="text-slate-800 dark:text-slate-200">Dusun:</strong> {student.dusun}
-                        </p>
-                      )}
-                      <p className="text-slate-600 dark:text-slate-300">
-                        <strong className="text-slate-800 dark:text-slate-200">Desa / Kelurahan:</strong> {student.kelurahanDesa}
-                      </p>
-                      <p className="text-slate-600 dark:text-slate-300">
-                        <strong className="text-slate-800 dark:text-slate-200">Kecamatan:</strong> {student.kecamatan}
-                      </p>
-                      <p className="text-slate-600 dark:text-slate-300">
-                        <strong className="text-slate-800 dark:text-slate-200">Kabupaten/Kota:</strong> {student.kabupatenKota}
-                      </p>
-                      <p className="text-slate-600 dark:text-slate-300">
-                        <strong className="text-slate-800 dark:text-slate-200">Provinsi & Kode Pos:</strong> {student.provinsi} ({student.kodePos})
-                      </p>
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <p className="text-slate-500">Alamat Lengkap:</p>
+                    <p className="font-bold text-slate-800 dark:text-slate-100">{student.alamat}</p>
+                    <p className="text-slate-600 dark:text-slate-400 mt-1">
+                      RT {student.rt} / RW {student.rw}, Dusun {student.dusun || '-'}, Desa {student.kelurahanDesa}
+                    </p>
+                    <p className="text-slate-600 dark:text-slate-400">
+                      Kec. {student.kecamatan}, {student.kabupatenKota}, Prov. {student.provinsi} ({student.kodePos})
+                    </p>
                   </div>
-
-                  {/* Kolom 2: Mobilitas & Domisili */}
-                  <div className="space-y-2 p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/80">
-                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 block uppercase tracking-wide">
-                      Domisili & Akses Sekolah
-                    </span>
-                    <div className="space-y-2 pt-1">
-                      <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                        <span className="text-slate-500">Tinggal Bersama:</span>
-                        <strong className="text-slate-900 dark:text-slate-100">{student.tinggalDengan}</strong>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                        <span className="text-slate-500">Jarak ke Sekolah:</span>
-                        <strong className="text-slate-900 dark:text-slate-100 font-mono">{student.jarakKeSekolahKm} KM</strong>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                        <span className="text-slate-500">Moda Transportasi:</span>
-                        <strong className="text-slate-900 dark:text-slate-100">{student.transportasi}</strong>
-                      </div>
-                      <div className="flex justify-between py-1">
-                        <span className="text-slate-500">Kebutuhan Khusus:</span>
-                        <span className="text-slate-800 dark:text-slate-200 font-medium">{student.kebutuhanKhusus || 'Tidak Ada'}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Kolom 3: Kontak & Titik Koordinat */}
-                  <div className="space-y-2 p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/80">
-                    <span className="text-[11px] font-bold text-amber-700 dark:text-amber-300 block uppercase tracking-wide">
-                      Kontak & Titik Lokasi
-                    </span>
-                    <div className="space-y-2 pt-1">
-                      <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                        <span className="text-slate-500">No. HP / WA Siswa:</span>
-                        <strong className="text-blue-700 dark:text-blue-300 font-bold">{student.noHpSiswa || '-'}</strong>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                        <span className="text-slate-500">Email Siswa:</span>
-                        <span className="text-slate-800 dark:text-slate-200 truncate max-w-[180px]">{student.emailSiswa || '-'}</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                        <span className="text-slate-500">Lintang (Latitude):</span>
-                        <span className="font-mono text-slate-700 dark:text-slate-300">{student.lintang || '-'}</span>
-                      </div>
-                      <div className="flex justify-between py-1">
-                        <span className="text-slate-500">Bujur (Longitude):</span>
-                        <span className="font-mono text-slate-700 dark:text-slate-300">{student.bujur || '-'}</span>
-                      </div>
-                    </div>
+                  <div className="space-y-1.5">
+                    <div><span className="text-slate-500">Tinggal Bersama:</span> <span className="font-semibold">{student.tinggalDengan}</span></div>
+                    <div><span className="text-slate-500">Jarak ke Sekolah:</span> <span className="font-semibold">{student.jarakKeSekolahKm} KM</span></div>
+                    <div><span className="text-slate-500">Transportasi:</span> <span className="font-semibold">{student.transportasi}</span></div>
                   </div>
                 </div>
               </div>
@@ -1408,53 +1212,37 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
           {/* TAB 3: KESEHATAN & MASUK */}
           {activeTab === 'kesehatan' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 space-y-3">
-                <h4 className="text-xs font-black text-blue-900 dark:text-blue-300 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200/80 dark:border-slate-700 pb-2.5">
-                  <HeartPulse className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                  <span>Kesehatan & Keadaan Jasmani Siswa</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 space-y-3">
+                <h4 className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wider flex items-center gap-2">
+                  <HeartPulse className="w-4 h-4" />
+                  <span>Kesehatan & Keadaan Jasmani</span>
                 </h4>
-                <div className="space-y-0.5 text-xs">
-                  <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                    <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Golongan Darah</span>
-                    <strong className="text-rose-600 dark:text-rose-400 font-black text-sm flex-1">{student.kesehatan.golonganDarah || '-'}</strong>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                    <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Tinggi Badan</span>
-                    <span className="font-bold text-slate-900 dark:text-slate-100 flex-1">{student.kesehatan.tinggiBadanCm} cm</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                    <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Berat Badan</span>
-                    <span className="font-bold text-slate-900 dark:text-slate-100 flex-1">{student.kesehatan.beratBadanKg} kg</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                    <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Lingkar Kepala</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200 flex-1">
-                      {student.lingkarKepala ? `${student.lingkarKepala} cm` : '-'}
-                    </span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                    <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Riwayat Penyakit</span>
-                    <span className="text-slate-800 dark:text-slate-200 font-medium flex-1">{student.kesehatan.penyakitPernahDiderita || 'Tidak Ada'}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1">
-                    <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Kelainan Jasmani</span>
-                    <span className="text-slate-800 dark:text-slate-200 font-medium flex-1">{student.kesehatan.kelainanJasmani || 'Tidak Ada'}</span>
-                  </div>
+                <div className="grid grid-cols-2 gap-2 text-xs divide-y divide-slate-100 dark:divide-slate-800">
+                  <div className="py-1 text-slate-500">Golongan Darah</div>
+                  <div className="py-1 font-bold text-rose-600">{student.kesehatan.golonganDarah}</div>
+                  <div className="py-1 text-slate-500">Tinggi Badan</div>
+                  <div className="py-1 font-semibold text-slate-800 dark:text-slate-200">{student.kesehatan.tinggiBadanCm} cm</div>
+                  <div className="py-1 text-slate-500">Berat Badan</div>
+                  <div className="py-1 font-semibold text-slate-800 dark:text-slate-200">{student.kesehatan.beratBadanKg} kg</div>
+                  <div className="py-1 text-slate-500">Riwayat Penyakit</div>
+                  <div className="py-1 text-slate-700 dark:text-slate-300">{student.kesehatan.penyakitPernahDiderita || 'Tidak Ada'}</div>
+                  <div className="py-1 text-slate-500">Kelainan Jasmani</div>
+                  <div className="py-1 text-slate-700 dark:text-slate-300">{student.kesehatan.kelainanJasmani || 'Tidak Ada'}</div>
                 </div>
               </div>
 
-              <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 space-y-3">
-                <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/80 dark:border-slate-700">
-                  <h4 className="text-xs font-black text-blue-900 dark:text-blue-300 uppercase tracking-wider flex items-center gap-2">
-                    <Building className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 space-y-3">
+                <div className="flex items-center justify-between pb-1 border-b border-slate-200 dark:border-slate-700">
+                  <h4 className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wider flex items-center gap-2">
+                    <Building className="w-4 h-4" />
                     <span>Riwayat Masuk & Pendidikan Asal</span>
                   </h4>
                   {currentRole !== 'umum' && (
                     <button
                       type="button"
                       onClick={() => onEdit(student, 'masuk')}
-                      className="px-2.5 py-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/60 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                      className="px-2 py-0.5 text-[11px] font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/60 rounded flex items-center gap-1 transition-colors cursor-pointer"
                       title="Edit Riwayat Masuk & Pendidikan Asal"
                     >
                       <Edit3 className="w-3 h-3" />
@@ -1462,37 +1250,23 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                     </button>
                   )}
                 </div>
-                <div className="space-y-0.5 text-xs">
-                  <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                    <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Pendidikan Asal (TK/PAUD)</span>
-                    <strong className="text-slate-900 dark:text-slate-100 font-bold flex-1">{student.sekolahAsalTK || '-'}</strong>
+                <div className="grid grid-cols-2 gap-2 text-xs divide-y divide-slate-100 dark:divide-slate-800">
+                  <div className="py-1 text-slate-500">Pendidikan Asal (TK/PAUD)</div>
+                  <div className="py-1 font-bold text-slate-800 dark:text-slate-100">{student.sekolahAsalTK || '-'}</div>
+                  <div className="py-1 text-slate-500">No. Ijazah TK / SKTB</div>
+                  <div className="py-1 font-mono text-slate-700 dark:text-slate-300">{student.noIjazahTK || '-'}</div>
+                  <div className="py-1 text-slate-500">Diterima Tanggal</div>
+                  <div className="py-1 font-semibold text-slate-800 dark:text-slate-200">{formatIndonesianDate(student.tanggalDiterima)}</div>
+                  <div className="py-1 text-slate-500">Diterima di Kelas</div>
+                  <div className="py-1 font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded w-fit">
+                    {(!student.diterimaDiKelas || student.diterimaDiKelas === '7' || student.diterimaDiKelas === '7A' || student.diterimaDiKelas.toLowerCase() === 'kelas 7') ? 'Kelas 1' : student.diterimaDiKelas}
                   </div>
-                  <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                    <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">No. Ijazah TK / SKTB</span>
-                    <span className="font-mono text-slate-700 dark:text-slate-300 font-semibold flex-1">{student.noIjazahTK || '-'}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                    <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Tanggal Diterima Masuk</span>
-                    <span className="font-bold text-slate-900 dark:text-slate-100 flex-1">{formatIndonesianDate(student.tanggalDiterima)}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                    <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Diterima di Kelas</span>
-                    <span className="font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950/80 px-2 py-0.5 rounded-md flex-1 w-fit">
-                      {(!student.diterimaDiKelas || student.diterimaDiKelas === '7' || student.diterimaDiKelas === '7A' || student.diterimaDiKelas.toLowerCase() === 'kelas 7') ? 'Kelas 1' : student.diterimaDiKelas}
-                    </span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                    <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Tingkat Kelas Sekarang</span>
-                    <span className="font-extrabold text-slate-900 dark:text-slate-100 flex-1">{student.kelasSekarang || 'Kelas 1'}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1 border-b border-slate-100 dark:border-slate-800/70">
-                    <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Tahun Ajaran Masuk</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200 flex-1">{student.tahunMasuk || '-'}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-baseline py-2 px-1">
-                    <span className="w-full sm:w-48 text-slate-500 dark:text-slate-400 font-medium shrink-0">Status Keaktifan</span>
-                    <span className="font-bold text-emerald-700 dark:text-emerald-400 flex-1">{student.status || 'Aktif'}</span>
-                  </div>
+                  <div className="py-1 text-slate-500">Kelas Sekarang</div>
+                  <div className="py-1 font-semibold text-slate-800 dark:text-slate-200">{student.kelasSekarang || 'Kelas 1'}</div>
+                  <div className="py-1 text-slate-500">Tahun Masuk</div>
+                  <div className="py-1 font-semibold text-slate-800 dark:text-slate-200">{student.tahunMasuk || '-'}</div>
+                  <div className="py-1 text-slate-500">Status Siswa</div>
+                  <div className="py-1 font-semibold text-slate-800 dark:text-slate-200">{student.status || 'Aktif'}</div>
                 </div>
               </div>
             </div>
@@ -1500,138 +1274,82 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
           {/* TAB 4: RAPORT */}
           {activeTab === 'raport' && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {(!student.raport || student.raport.length === 0) ? (
-                <div className="text-center py-12 border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl bg-slate-50/50 dark:bg-slate-800/30">
-                  <BookOpen className="w-10 h-10 mx-auto mb-2 text-slate-400 opacity-60" />
-                  <p className="text-xs font-bold text-slate-600 dark:text-slate-300">Belum ada rekap nilai raport yang diinput untuk siswa ini.</p>
-                  <p className="text-[11px] text-slate-400 mt-1">Data nilai semester dapat dimasukkan melalui modul Buku Raport.</p>
+                <div className="text-center py-10 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Belum ada rekap nilai raport yang diinput untuk siswa ini.</p>
                   {currentRole !== 'umum' && (
                     <button
                       onClick={() => onRaport(student)}
-                      className="mt-4 px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+                      className="mt-3 px-4 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700"
                     >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      <span>Input Nilai Raport Baru</span>
+                      + Input Nilai Raport Baru
                     </button>
                   )}
                 </div>
               ) : (
-                student.raport.map((rep, idx) => {
-                  const totalNilai = rep.nilai.reduce((acc, curr) => acc + (Number(curr.nilaiAkhir) || 0), 0);
-                  const rataRata = rep.nilai.length > 0 ? (totalNilai / rep.nilai.length).toFixed(1) : '0';
-
-                  return (
-                    <div key={idx} className="p-5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/90 shadow-xs space-y-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-700">
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="text-sm font-black text-blue-900 dark:text-blue-300 uppercase tracking-wide">
-                              Buku Raport Semester {rep.semester} ({rep.kelas})
-                            </h4>
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-900">
-                              TP {rep.tahunAjaran}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                            Peringkat Kelas: <strong className="text-amber-600 dark:text-amber-400 font-extrabold font-mono">#{rep.peringkatKelas || 1}</strong> dari {rep.totalSiswaKelas || 28} siswa
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-xs font-extrabold rounded-full border border-emerald-300 dark:border-emerald-800">
-                            Status: Tuntas
-                          </span>
-                        </div>
+                student.raport.map((rep, idx) => (
+                  <div key={idx} className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                      <div>
+                        <h4 className="text-xs font-extrabold text-blue-900 dark:text-blue-300 uppercase">
+                          Nilai Raport Semester {rep.semester} ({rep.kelas} - TP {rep.tahunAjaran})
+                        </h4>
+                        <p className="text-[11px] text-slate-500">
+                          Peringkat Kelas: <strong className="text-amber-500">#{rep.peringkatKelas || 1}</strong> dari {rep.totalSiswaKelas || 28} siswa
+                        </p>
                       </div>
-
-                      {/* Tabel Nilai yang Dilebarkan */}
-                      <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
-                        <table className="w-full text-xs text-left min-w-[700px]">
-                          <thead className="bg-slate-100 dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 text-[11px] uppercase tracking-wider font-bold">
-                            <tr>
-                              <th className="py-3 px-3 text-center w-12">No</th>
-                              <th className="py-3 px-4 min-w-[240px]">Mata Pelajaran</th>
-                              <th className="py-3 px-3 text-center w-24">KKM</th>
-                              <th className="py-3 px-3 text-center w-32">Nilai Pengetahuan</th>
-                              <th className="py-3 px-3 text-center w-32">Nilai Keterampilan</th>
-                              <th className="py-3 px-3 text-center w-32">Nilai Akhir</th>
-                              <th className="py-3 px-3 text-center w-24">Predikat</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60 bg-white dark:bg-slate-800">
-                            {rep.nilai.map((n, i) => (
-                              <tr key={i} className="hover:bg-blue-50/40 dark:hover:bg-slate-700/50 transition-colors">
-                                <td className="py-2.5 px-3 text-center text-slate-400 font-medium">{i + 1}</td>
-                                <td className="py-2.5 px-4 font-semibold text-slate-900 dark:text-slate-100">{n.mapel}</td>
-                                <td className="py-2.5 px-3 text-center font-mono font-medium text-slate-600 dark:text-slate-400">{n.kkm}</td>
-                                <td className="py-2.5 px-3 text-center font-mono font-semibold text-slate-800 dark:text-slate-200">{n.pengetahuan}</td>
-                                <td className="py-2.5 px-3 text-center font-mono font-semibold text-slate-800 dark:text-slate-200">{n.keterampilan}</td>
-                                <td className="py-2.5 px-3 text-center font-mono font-black text-sm text-blue-700 dark:text-blue-300">{n.nilaiAkhir}</td>
-                                <td className="py-2.5 px-3 text-center font-bold">
-                                  <span className={cn(
-                                    "px-2 py-0.5 rounded text-[11px] font-extrabold",
-                                    n.predikat === 'A' ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800' :
-                                    n.predikat === 'B' ? 'bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800' :
-                                    n.predikat === 'C' ? 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800' :
-                                    'bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800'
-                                  )}>
-                                    {n.predikat}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          <tfoot className="bg-slate-50 dark:bg-slate-800/90 font-bold border-t-2 border-slate-200 dark:border-slate-700 text-xs">
-                            <tr>
-                              <td colSpan={2} className="py-3 px-4 text-right uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                                Total & Rata-Rata Nilai:
-                              </td>
-                              <td className="py-3 px-3 text-center text-slate-400 font-mono">-</td>
-                              <td colSpan={2} className="py-3 px-3 text-center font-mono text-slate-700 dark:text-slate-300">
-                                Jumlah Nilai: <span className="font-extrabold text-slate-900 dark:text-slate-100">{totalNilai}</span>
-                              </td>
-                              <td className="py-3 px-3 text-center font-mono font-black text-sm text-blue-700 dark:text-blue-300">
-                                {rataRata}
-                              </td>
-                              <td className="py-3 px-3 text-center text-[11px] text-emerald-700 dark:text-emerald-300 uppercase">
-                                Tuntas
-                              </td>
-                            </tr>
-                          </tfoot>
-                        </table>
-                      </div>
-
-                      {/* Catatan & Rekapitulasi Kehadiran */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
-                        <div className="md:col-span-2 p-4 bg-slate-50 dark:bg-slate-700/40 rounded-xl border border-slate-200 dark:border-slate-700 text-xs space-y-1.5">
-                          <span className="font-bold text-slate-900 dark:text-slate-100 block text-[11px] uppercase tracking-wide">
-                            Catatan & Rekomendasi Wali Kelas:
-                          </span>
-                          <p className="text-slate-700 dark:text-slate-300 leading-relaxed italic">
-                            "{rep.catatanWaliKelas || 'Tingkatkan terus prestasi belajar dan kedisiplinan di sekolah.'}"
-                          </p>
-                        </div>
-                        <div className="p-4 bg-slate-50 dark:bg-slate-700/40 rounded-xl border border-slate-200 dark:border-slate-700 text-xs space-y-2">
-                          <span className="font-bold text-slate-900 dark:text-slate-100 block text-[11px] uppercase tracking-wide">
-                            Rekapitulasi Kehadiran:
-                          </span>
-                          <div className="flex justify-between py-1 border-b border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300">
-                            <span>Sakit (S):</span>
-                            <strong className="font-mono text-slate-800 dark:text-slate-100 font-bold">{rep.kehadiran.sakit} hari</strong>
-                          </div>
-                          <div className="flex justify-between py-1 border-b border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300">
-                            <span>Izin (I):</span>
-                            <strong className="font-mono text-slate-800 dark:text-slate-100 font-bold">{rep.kehadiran.izin} hari</strong>
-                          </div>
-                          <div className="flex justify-between py-1 text-slate-600 dark:text-slate-300">
-                            <span>Tanpa Keterangan (A):</span>
-                            <strong className="font-mono text-rose-600 dark:text-rose-400 font-bold">{rep.kehadiran.tanpaKeterangan} hari</strong>
-                          </div>
-                        </div>
-                      </div>
+                      <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] font-bold rounded-full">
+                        Tuntas
+                      </span>
                     </div>
-                  );
-                })
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-left">
+                        <thead className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] uppercase">
+                          <tr>
+                            <th className="p-2">No</th>
+                            <th className="p-2">Mata Pelajaran</th>
+                            <th className="p-2 text-center">KKM</th>
+                            <th className="p-2 text-center">Pengetahuan</th>
+                            <th className="p-2 text-center">Keterampilan</th>
+                            <th className="p-2 text-center">Nilai Akhir</th>
+                            <th className="p-2 text-center">Predikat</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                          {rep.nilai.map((n, i) => (
+                            <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                              <td className="p-2 text-slate-400">{i + 1}</td>
+                              <td className="p-2 font-medium text-slate-800 dark:text-slate-200">{n.mapel}</td>
+                              <td className="p-2 text-center font-mono">{n.kkm}</td>
+                              <td className="p-2 text-center font-mono">{n.pengetahuan}</td>
+                              <td className="p-2 text-center font-mono">{n.keterampilan}</td>
+                              <td className="p-2 text-center font-mono font-bold text-blue-600 dark:text-blue-400">{n.nilaiAkhir}</td>
+                              <td className="p-2 text-center font-bold">
+                                <span className={cn(
+                                  "px-1.5 py-0.5 rounded text-[10px]",
+                                  n.predikat === 'A' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
+                                )}>
+                                  {n.predikat}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 dark:bg-slate-700/30 rounded-lg text-xs space-y-1">
+                      <p className="text-slate-600 dark:text-slate-300">
+                        <strong className="text-slate-800 dark:text-slate-200">Catatan Wali Kelas:</strong> {rep.catatanWaliKelas}
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        Kehadiran: Sakit: {rep.kehadiran.sakit} hari | Izin: {rep.kehadiran.izin} hari | Alpa: {rep.kehadiran.tanpaKeterangan} hari
+                      </p>
+                    </div>
+                  </div>
+                ))
               )}
             </div>
           )}
@@ -1640,44 +1358,33 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
           {activeTab === 'kelulusan' && (
             <div className="space-y-6">
               {/* MUTASI */}
-              <div className="p-5 rounded-2xl border border-orange-200 dark:border-orange-900 bg-orange-50/30 dark:bg-orange-950/20 space-y-4">
-                <h4 className="text-xs font-black text-orange-900 dark:text-orange-300 uppercase tracking-wider flex items-center gap-2 border-b border-orange-200/80 dark:border-orange-900 pb-2.5">
+              <div className="p-4 rounded-xl border border-orange-200 dark:border-orange-900 bg-orange-50/30 dark:bg-orange-950/20 space-y-3">
+                <h4 className="text-xs font-bold text-orange-900 dark:text-orange-300 uppercase tracking-wider flex items-center gap-2">
                   <UserMinus className="w-4 h-4 text-orange-600" />
                   <span>Catatan Mutasi / Meninggalkan Sekolah (Sheet TINGGALKAN)</span>
                 </h4>
                 {student.mutasi ? (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-xs">
-                      <div className="flex flex-col sm:flex-row sm:items-baseline py-1.5 border-b border-orange-100 dark:border-orange-900/40">
-                        <span className="w-full sm:w-44 text-slate-500 dark:text-slate-400 font-medium shrink-0">Tanggal Surat Mutasi</span>
-                        <strong className="text-slate-900 dark:text-slate-100 flex-1 font-bold">{formatIndonesianDate(student.mutasi.tglMeninggalkan)}</strong>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div><span className="text-slate-500">Tanggal Surat:</span> <strong className="text-slate-800 dark:text-slate-100">{formatIndonesianDate(student.mutasi.tglMeninggalkan)}</strong></div>
+                      <div><span className="text-slate-500">Tingkat / Dari Kelas:</span> <span className="font-semibold">{student.mutasi.dariKelas}</span></div>
+                      <div>
+                        <span className="text-slate-500">Sekolah Tujuan:</span> <strong className="text-blue-700 dark:text-blue-300">{student.mutasi.sekolahTujuan}</strong>
+                        {(student.mutasi.desaKelurahanTujuan || student.mutasi.kabupatenKotaTujuan) && (
+                          <div className="text-[11px] text-slate-500">
+                            {[student.mutasi.desaKelurahanTujuan, student.mutasi.kecamatanTujuan, student.mutasi.kabupatenKotaTujuan, student.mutasi.provinsiTujuan].filter(Boolean).join(', ')}
+                          </div>
+                        )}
                       </div>
-                      <div className="flex flex-col sm:flex-row sm:items-baseline py-1.5 border-b border-orange-100 dark:border-orange-900/40">
-                        <span className="w-full sm:w-44 text-slate-500 dark:text-slate-400 font-medium shrink-0">Tingkat / Dari Kelas</span>
-                        <span className="font-semibold text-slate-800 dark:text-slate-200 flex-1">{student.mutasi.dariKelas}</span>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-baseline py-1.5 border-b border-orange-100 dark:border-orange-900/40">
-                        <span className="w-full sm:w-44 text-slate-500 dark:text-slate-400 font-medium shrink-0">Sekolah Tujuan</span>
-                        <strong className="text-blue-700 dark:text-blue-300 flex-1 font-bold">{student.mutasi.sekolahTujuan}</strong>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-baseline py-1.5 border-b border-orange-100 dark:border-orange-900/40">
-                        <span className="w-full sm:w-44 text-slate-500 dark:text-slate-400 font-medium shrink-0">Nomor Surat Pindah</span>
-                        <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold flex-1">{student.mutasi.noSuratPindah}</span>
-                      </div>
+                      <div><span className="text-slate-500">Nomor Surat Pindah:</span> <span className="font-mono text-slate-700 dark:text-slate-300">{student.mutasi.noSuratPindah}</span></div>
                       {student.mutasi.namaPemohon && (
-                        <div className="flex flex-col sm:flex-row sm:items-baseline py-1.5 border-b border-orange-100 dark:border-orange-900/40">
-                          <span className="w-full sm:w-44 text-slate-500 dark:text-slate-400 font-medium shrink-0">Pemohon (Ortu/Wali)</span>
-                          <span className="font-bold text-slate-900 dark:text-slate-100 flex-1">{student.mutasi.namaPemohon} ({student.mutasi.pekerjaanPemohon || '-'})</span>
-                        </div>
+                        <div><span className="text-slate-500">Pemohon (Orang Tua/Wali):</span> <span className="font-bold text-slate-800 dark:text-slate-200">{student.mutasi.namaPemohon} ({student.mutasi.pekerjaanPemohon || '-'})</span></div>
                       )}
-                      <div className="flex flex-col sm:flex-row sm:items-baseline py-1.5 border-b border-orange-100 dark:border-orange-900/40 md:col-span-2">
-                        <span className="w-full sm:w-44 text-slate-500 dark:text-slate-400 font-medium shrink-0">Dengan Alasan</span>
-                        <span className="text-slate-800 dark:text-slate-200 font-medium flex-1">{student.mutasi.alasanPindah}</span>
-                      </div>
+                      <div className={student.mutasi.namaPemohon ? '' : 'sm:col-span-2'}><span className="text-slate-500">Dengan Alasan:</span> <span className="text-slate-800 dark:text-slate-200 font-medium">{student.mutasi.alasanPindah}</span></div>
                     </div>
 
                     {/* Lampiran Scan Ijazah / Dokumen Mutasi */}
-                    <div className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-orange-200 dark:border-orange-900/60 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-orange-200 dark:border-orange-900/60 flex flex-col sm:flex-row items-center justify-between gap-3">
                       {student.mutasi.fotoIjazah ? (
                         <>
                           <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -1787,48 +1494,22 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
               </div>
 
               {/* STTB / IJAZAH */}
-              <div className="p-5 rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/30 dark:bg-emerald-950/20 space-y-4">
-                <h4 className="text-xs font-black text-emerald-900 dark:text-emerald-300 uppercase tracking-wider flex items-center gap-2 border-b border-emerald-200/80 dark:border-emerald-900 pb-2.5">
+              <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/30 dark:bg-emerald-950/20 space-y-3">
+                <h4 className="text-xs font-bold text-emerald-900 dark:text-emerald-300 uppercase tracking-wider flex items-center gap-2">
                   <GraduationCap className="w-4 h-4 text-emerald-600" />
                   <span>STTB / Ijazah & Serah Terima Dokumen (Sheet STTB)</span>
                 </h4>
                 {student.sttb ? (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-xs">
-                      <div className="flex flex-col sm:flex-row sm:items-baseline py-1.5 border-b border-emerald-100 dark:border-emerald-900/40">
-                        <span className="w-full sm:w-44 text-slate-500 dark:text-slate-400 font-medium shrink-0">No. Seri Ijazah</span>
-                        <strong className="font-mono text-blue-700 dark:text-blue-300 flex-1 font-bold">{student.sttb.noIjazah || '-'}</strong>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-baseline py-1.5 border-b border-emerald-100 dark:border-emerald-900/40">
-                        <span className="w-full sm:w-44 text-slate-500 dark:text-slate-400 font-medium shrink-0">No. SKHU</span>
-                        <span className="font-mono text-slate-800 dark:text-slate-200 flex-1">{student.sttb.noSkhu || '-'}</span>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-baseline py-1.5 border-b border-emerald-100 dark:border-emerald-900/40">
-                        <span className="w-full sm:w-44 text-slate-500 dark:text-slate-400 font-medium shrink-0">No. Peserta UN</span>
-                        <span className="font-mono text-slate-800 dark:text-slate-200 flex-1">{student.sttb.noPesertaUN || '-'}</span>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-baseline py-1.5 border-b border-emerald-100 dark:border-emerald-900/40">
-                        <span className="w-full sm:w-44 text-slate-500 dark:text-slate-400 font-medium shrink-0">Tanggal Kelulusan</span>
-                        <span className="font-bold text-slate-900 dark:text-slate-100 flex-1">{formatIndonesianDate(student.sttb.tanggalKelulusan)}</span>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-baseline py-1.5 border-b border-emerald-100 dark:border-emerald-900/40">
-                        <span className="w-full sm:w-44 text-slate-500 dark:text-slate-400 font-medium shrink-0">Melanjutkan Ke</span>
-                        <strong className="text-slate-900 dark:text-slate-100 flex-1 font-bold">{student.sttb.melanjutkanKe || '-'}</strong>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-baseline py-1.5 border-b border-emerald-100 dark:border-emerald-900/40">
-                        <span className="w-full sm:w-44 text-slate-500 dark:text-slate-400 font-medium shrink-0">Status Tanda Terima</span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold text-[11px] w-fit">
-                          {student.sttb.statusTandaTerima || 'Sudah Diterima'}
-                        </span>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-baseline py-1.5 border-b border-emerald-100 dark:border-emerald-900/40">
-                        <span className="w-full sm:w-44 text-slate-500 dark:text-slate-400 font-medium shrink-0">Tanggal Serah Terima</span>
-                        <span className="font-medium text-slate-800 dark:text-slate-200 flex-1">{formatIndonesianDate(student.sttb.tglSerahTerima)}</span>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-baseline py-1.5 border-b border-emerald-100 dark:border-emerald-900/40">
-                        <span className="w-full sm:w-44 text-slate-500 dark:text-slate-400 font-medium shrink-0">Nama Penerima & Hubungan</span>
-                        <span className="font-semibold text-slate-900 dark:text-slate-100 flex-1">{student.sttb.namaPenerima || '-'} ({student.sttb.hubunganPenerima || 'Siswa'})</span>
-                      </div>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div><span className="text-slate-500">No. Seri Ijazah:</span> <strong className="font-mono text-blue-700 dark:text-blue-300">{student.sttb.noIjazah || '-'}</strong></div>
+                      <div><span className="text-slate-500">No. SKHU:</span> <span className="font-mono">{student.sttb.noSkhu || '-'}</span></div>
+                      <div><span className="text-slate-500">No. Peserta UN:</span> <span className="font-mono text-slate-800 dark:text-slate-200">{student.sttb.noPesertaUN || '-'}</span></div>
+                      <div><span className="text-slate-500">Tanggal Kelulusan:</span> <span className="font-semibold">{formatIndonesianDate(student.sttb.tanggalKelulusan)}</span></div>
+                      <div><span className="text-slate-500">Melanjutkan Ke:</span> <strong className="text-slate-800 dark:text-slate-100">{student.sttb.melanjutkanKe || '-'}</strong></div>
+                      <div><span className="text-slate-500">Status Pengambilan:</span> <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">{student.sttb.statusTandaTerima}</span></div>
+                      <div><span className="text-slate-500">Tanggal Serah Terima:</span> <span>{formatIndonesianDate(student.sttb.tglSerahTerima)}</span></div>
+                      <div><span className="text-slate-500">Nama Penerima / Hubungan:</span> <span>{student.sttb.namaPenerima} ({student.sttb.hubunganPenerima})</span></div>
                     </div>
 
                     {/* Lampiran Scan Asli Ijazah (STTB) */}
