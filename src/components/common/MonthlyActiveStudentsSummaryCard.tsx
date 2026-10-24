@@ -14,6 +14,7 @@ import {
   Download, 
   FileSpreadsheet, 
   Eye, 
+  EyeOff,
   Award,
   Sparkles,
   ArrowUpRight,
@@ -295,6 +296,27 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
     });
   }, [availableClasses, activeStudentsGrade1to6, schoolProfile.waliKelasMap]);
 
+  // Sembunyikan kelas yang tidak ada siswa (0 siswa) secara default
+  const [hideEmptyRombel, setHideEmptyRombel] = useState<boolean>(true);
+
+  // Jumlah rombel yang tidak memiliki siswa (total === 0)
+  const emptyRombelCount = useMemo(() => {
+    return rombelStats.filter(r => r.total === 0).length;
+  }, [rombelStats]);
+
+  // Rombel yang ditampilkan (sembunyikan yang total = 0 jika hideEmptyRombel aktif)
+  const visibleRombelStats = useMemo(() => {
+    if (hideEmptyRombel) {
+      return rombelStats.filter(r => r.total > 0);
+    }
+    return rombelStats;
+  }, [rombelStats, hideEmptyRombel]);
+
+  // Jumlah rombel aktif yang memiliki siswa (> 0)
+  const activeRombelsCount = useMemo(() => {
+    return rombelStats.filter(r => r.total > 0).length;
+  }, [rombelStats]);
+
   // Breakdown Total Siswa di Setiap Tingkat (Tingkat 1 - 6)
   const tingkatStats: MonthlyTingkatStat[] = useMemo(() => {
     const totalAll = activeStudentsGrade1to6.length;
@@ -382,11 +404,12 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
     const rombelSheetData: (string | number)[][] = [
       [`DISTRIBUSI SISWA PER ROMBEL & TINGKAT (${selectedMonthInfo.fullName.toUpperCase()})`],
       [`TAHUN PELAJARAN: ${activeTP}`],
+      [`STATUS FILTER: ${hideEmptyRombel ? `Hanya Menampilkan Rombel Aktif (${visibleRombelStats.length} Kelas)` : `Semua Rombel Terkonfigurasi (${rombelStats.length} Kelas)`}`],
       [],
       ['No', 'Nama Rombel / Kelas', 'Tingkat', 'Wali Kelas', 'Laki-Laki (L)', 'Perempuan (P)', 'Total Siswa', 'Persentase (%)'],
     ];
 
-    rombelStats.forEach((r, idx) => {
+    visibleRombelStats.forEach((r, idx) => {
       rombelSheetData.push([
         idx + 1,
         r.rombel,
@@ -482,7 +505,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
             <span className="text-slate-400">•</span>
             <span>Total Siswa: <strong className="text-blue-700 dark:text-blue-400">{activeStudentsGrade1to6.length}</strong></span>
             <span className="text-slate-400">•</span>
-            <span>Jumlah Rombel: <strong>{availableClasses.length}</strong></span>
+            <span>Jumlah Rombel: <strong className="text-amber-600 dark:text-amber-400">{activeRombelsCount}</strong></span>
             <span className="text-slate-400">•</span>
             <span>Siswa Masuk: <strong className="text-emerald-600 dark:text-emerald-400">+{currentMonthData.masukCount}</strong></span>
             <span className="text-slate-400">•</span>
@@ -685,11 +708,15 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                     <Layers className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   </div>
                   <p className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">
-                    {availableClasses.length} <span className="text-xs font-normal text-slate-500">Kelas</span>
+                    {activeRombelsCount} <span className="text-xs font-normal text-slate-500">Kelas Aktif</span>
                   </p>
                   <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500 font-semibold">
-                    <span>Rata-rata: {availableClasses.length > 0 ? Math.round(activeStudentsGrade1to6.length / availableClasses.length) : 0} siswa/kelas</span>
-                    <span className="text-amber-600 font-bold group-hover:underline">Detail →</span>
+                    <span>Rata-rata: {activeRombelsCount > 0 ? Math.round(activeStudentsGrade1to6.length / activeRombelsCount) : 0} siswa/kelas</span>
+                    {emptyRombelCount > 0 && hideEmptyRombel ? (
+                      <span className="text-amber-600 font-medium">({emptyRombelCount} kelas 0)</span>
+                    ) : (
+                      <span className="text-amber-600 font-bold group-hover:underline">Detail →</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -698,7 +725,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
               <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
                 {[
                   { id: 'tingkat', label: 'Total Siswa per Tingkat (1-6)', count: 6 },
-                  { id: 'rombel', label: 'Jumlah Siswa di Rombel', count: availableClasses.length },
+                  { id: 'rombel', label: `Jumlah Siswa di Rombel (${activeRombelsCount})`, count: activeRombelsCount },
                   { id: 'siswa-masuk', label: `Siswa Masuk (${currentMonthData.masukCount})`, count: currentMonthData.masukCount },
                   { id: 'siswa-mutasi', label: `Siswa Mutasi (${currentMonthData.mutasiCount})`, count: currentMonthData.mutasiCount },
                 ].map((item) => (
@@ -796,14 +823,35 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
               {/* SECTION B: JUMLAH SISWA DI ROMBEL */}
               {activeSubSection === 'rombel' && (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-extrabold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
-                      <Layers className="w-4 h-4 text-amber-500" />
-                      <span>Rincian Jumlah Siswa di Setiap Rombel / Kelas Aktif</span>
-                    </h4>
-                    <span className="text-xs text-slate-500 font-medium">
-                      {availableClasses.length} Rombel Terkonfigurasi
-                    </span>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <h4 className="text-xs font-extrabold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
+                        <Layers className="w-4 h-4 text-amber-500" />
+                        <span>Rincian Jumlah Siswa di Setiap Rombel / Kelas Aktif</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Menampilkan {visibleRombelStats.length} rombel aktif{emptyRombelCount > 0 && hideEmptyRombel ? ` (${emptyRombelCount} rombel dengan 0 siswa disembunyikan)` : ''}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {emptyRombelCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setHideEmptyRombel(!hideEmptyRombel)}
+                          className={cn(
+                            "px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border flex items-center gap-1.5 cursor-pointer shadow-2xs",
+                            hideEmptyRombel
+                              ? "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800 hover:bg-amber-100"
+                              : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200"
+                          )}
+                          title={hideEmptyRombel ? "Klik untuk menampilkan kelas dengan 0 siswa" : "Klik untuk menyembunyikan kelas dengan 0 siswa"}
+                        >
+                          {hideEmptyRombel ? <EyeOff className="w-3.5 h-3.5 text-amber-600 shrink-0" /> : <Eye className="w-3.5 h-3.5 shrink-0" />}
+                          <span>{hideEmptyRombel ? `Sembunyikan Kelas Kosong (${emptyRombelCount})` : `Tampilkan Semua (${emptyRombelCount} Kelas 0)`}</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
@@ -822,40 +870,61 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
-                        {rombelStats.map((r, idx) => (
-                          <tr key={r.rombel} className="hover:bg-blue-50/40 dark:hover:bg-slate-800/40 transition-colors">
-                            <td className="py-2.5 px-3 text-center text-slate-400 font-mono">{idx + 1}</td>
-                            <td className="py-2.5 px-3 font-black text-slate-900 dark:text-slate-100">
-                              {r.rombel}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
-                                Tingkat {r.tingkat}
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 font-medium">
-                              {r.waliKelas || <span className="text-slate-400 italic">Belum ditentukan</span>}
-                            </td>
-                            <td className="py-2.5 px-3 text-center font-bold text-blue-600 dark:text-blue-400">{r.jmlL}</td>
-                            <td className="py-2.5 px-3 text-center font-bold text-pink-600 dark:text-pink-400">{r.jmlP}</td>
-                            <td className="py-2.5 px-3 text-center font-black text-slate-900 dark:text-slate-100">
-                              {r.total}
-                            </td>
-                            <td className="py-2.5 px-3 text-center font-mono text-slate-500">{r.persentase}%</td>
-                            <td className="py-2.5 px-3 text-center">
-                              {onSelectRombelFilter && (
-                                <button
-                                  type="button"
-                                  onClick={() => onSelectRombelFilter(r.rombel)}
-                                  className="px-2 py-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 rounded text-[11px] font-bold cursor-pointer transition-colors"
-                                  title="Filter ke rombel ini"
-                                >
-                                  Pilih
-                                </button>
+                        {visibleRombelStats.length === 0 ? (
+                          <tr>
+                            <td colSpan={9} className="py-8 text-center text-slate-500 text-xs">
+                              <Layers className="w-8 h-8 mx-auto mb-2 opacity-30 text-slate-400" />
+                              <p className="font-bold text-slate-700 dark:text-slate-300">Tidak ada rombel dengan siswa aktif.</p>
+                              {emptyRombelCount > 0 && hideEmptyRombel && (
+                                <p className="text-[11px] text-slate-400 mt-1">
+                                  Terdapat {emptyRombelCount} rombel dengan 0 siswa yang disembunyikan.{' '}
+                                  <button
+                                    type="button"
+                                    onClick={() => setHideEmptyRombel(false)}
+                                    className="text-blue-600 dark:text-blue-400 underline font-semibold cursor-pointer"
+                                  >
+                                    Tampilkan kelas kosong
+                                  </button>
+                                </p>
                               )}
                             </td>
                           </tr>
-                        ))}
+                        ) : (
+                          visibleRombelStats.map((r, idx) => (
+                            <tr key={r.rombel} className="hover:bg-blue-50/40 dark:hover:bg-slate-800/40 transition-colors">
+                              <td className="py-2.5 px-3 text-center text-slate-400 font-mono">{idx + 1}</td>
+                              <td className="py-2.5 px-3 font-black text-slate-900 dark:text-slate-100">
+                                {r.rombel}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+                                  Tingkat {r.tingkat}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 font-medium">
+                                {r.waliKelas || <span className="text-slate-400 italic">Belum ditentukan</span>}
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-bold text-blue-600 dark:text-blue-400">{r.jmlL}</td>
+                              <td className="py-2.5 px-3 text-center font-bold text-pink-600 dark:text-pink-400">{r.jmlP}</td>
+                              <td className="py-2.5 px-3 text-center font-black text-slate-900 dark:text-slate-100">
+                                {r.total}
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-mono text-slate-500">{r.persentase}%</td>
+                              <td className="py-2.5 px-3 text-center">
+                                {onSelectRombelFilter && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onSelectRombelFilter(r.rombel)}
+                                    className="px-2 py-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 rounded text-[11px] font-bold cursor-pointer transition-colors"
+                                    title="Filter ke rombel ini"
+                                  >
+                                    Pilih
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
                       <tfoot>
                         <tr className="bg-slate-50 dark:bg-slate-800/80 font-black border-t-2 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100">
