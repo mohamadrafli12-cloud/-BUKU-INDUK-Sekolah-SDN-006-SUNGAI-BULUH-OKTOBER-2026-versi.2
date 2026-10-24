@@ -48,6 +48,8 @@ import { Student } from '../../types';
 import { cn, formatIndonesianDate } from '../../lib/utils';
 import { TabelDistribusiPeringkat } from '../analytics/TabelDistribusiPeringkat';
 import { EditTahunPelajaranModal } from '../modals/EditTahunPelajaranModal';
+import { MonthlyActiveStudentsSummaryCard } from '../common/MonthlyActiveStudentsSummaryCard';
+import { projectStudentsForAcademicYear, isKelas1Sampai6, getTingkatKelasNumber } from '../../utils/academicYearHelper';
 
 interface DashboardViewProps {
   setActiveTab: (tab: ActiveTab) => void;
@@ -89,6 +91,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const totalFemale = activeStudents.filter(s => s.jenisKelamin === 'P').length;
   const totalGraduated = students.filter(s => s.status === 'Lulus').length;
   const totalMutated = students.filter(s => s.status === 'Mutasi Keluar').length;
+
+  const projectedStudents = useMemo(() => {
+    return projectStudentsForAcademicYear(students, activeTP, '2026/2027');
+  }, [students, activeTP]);
+
+  const availableClasses = useMemo(() => {
+    const fromProfile = (schoolProfile.daftarKelas || []).filter(isKelas1Sampai6);
+    const fromStudents = activeStudents.map(s => s.kelasSekarang).filter(isKelas1Sampai6);
+    const baseList = fromProfile.length > 0 ? fromProfile : ['Kelas 1', 'Kelas 2', 'Kelas 3', 'Kelas 4', 'Kelas 5', 'Kelas 6'];
+    return Array.from(new Set([...baseList, ...fromStudents])).sort((a, b) => {
+      const tA = getTingkatKelasNumber(a);
+      const tB = getTingkatKelasNumber(b);
+      if (tA !== tB) return tA - tB;
+      return a.localeCompare(b, undefined, { numeric: true });
+    });
+  }, [schoolProfile.daftarKelas, activeStudents]);
 
   // Check empty required fields in school profile for user guidance
   const requiredProfileFields: { key: keyof typeof schoolProfile; label: string }[] = [
@@ -423,6 +441,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Kartu Ringkasan Statistik Bulanan Siswa Aktif */}
+      <MonthlyActiveStudentsSummaryCard
+        students={students}
+        projectedStudents={projectedStudents}
+        activeTP={activeTP}
+        activeSemester={activeSemester}
+        availableClasses={availableClasses}
+        schoolProfile={schoolProfile}
+        onSelectDetail={onSelectStudentDetail}
+        onSelectRombelFilter={() => setActiveTab('active-students')}
+        onSelectTingkatFilter={() => setActiveTab('active-students')}
+        defaultCollapsed={false}
+      />
 
       {/* Analytics & Improved Charts Section: Gender Distribution per Class Level */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

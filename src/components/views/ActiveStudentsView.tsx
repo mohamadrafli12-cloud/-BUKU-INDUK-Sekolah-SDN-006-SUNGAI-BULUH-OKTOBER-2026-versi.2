@@ -53,6 +53,7 @@ import { EditWaliKelasModal } from '../modals/EditWaliKelasModal';
 import { DownloadRombelModal } from '../modals/DownloadRombelModal';
 import { PrintActiveStudentsModal, PrintSettingsState } from '../modals/PrintActiveStudentsModal';
 import { ActiveStudentsPrintDocument } from '../common/ActiveStudentsPrintDocument';
+import { MonthlyActiveStudentsSummaryCard } from '../common/MonthlyActiveStudentsSummaryCard';
 import { 
   projectStudentsForAcademicYear, 
   ProjectedStudent,
@@ -67,7 +68,8 @@ export type ActiveStudentsSubTab =
   | 'mutasi-masuk' 
   | 'mutasi-keluar' 
   | 'tabel-rombel' 
-  | 'gender';
+  | 'gender'
+  | 'statistik-bulanan';
 
 interface ActiveStudentsViewProps {
   onOpenAddModal: () => void;
@@ -1175,6 +1177,31 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
         </div>
       </div>
 
+      {/* KARTU RINGKASAN STATISTIK BULANAN SISWA AKTIF PADA DASHBOARD DATA SISWA AKTIF */}
+      {subTab !== 'statistik-bulanan' && (
+        <MonthlyActiveStudentsSummaryCard
+          students={students}
+          projectedStudents={projectedStudents}
+          activeTP={activeTP}
+          activeSemester={activeSemester}
+          availableClasses={availableClasses}
+          schoolProfile={schoolProfile}
+          onSelectDetail={onSelectDetail}
+          onSelectRombelFilter={(rombel) => {
+            setSelectedRombel(rombel);
+            setSelectedTingkat('ALL');
+            setSubTab('daftar');
+            setCurrentPage(1);
+          }}
+          onSelectTingkatFilter={(tingkat) => {
+            setSelectedTingkat(tingkat);
+            setSelectedRombel('ALL');
+            setSubTab('daftar');
+            setCurrentPage(1);
+          }}
+        />
+      )}
+
       {/* NAVIGASI TAB MENU UTAMA */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden print:hidden">
         <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 overflow-x-auto scrollbar-thin">
@@ -1185,6 +1212,7 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
             { id: 'mutasi-keluar', label: 'Mutasi Keluar', icon: UserMinus, badge: studentsMutasiKeluar.length },
             { id: 'tabel-rombel', label: 'Tabel Siswa per Rombel', icon: Table },
             { id: 'gender', label: 'L / P (Rasio Gender)', icon: BarChart2 },
+            { id: 'statistik-bulanan', label: 'Statistik Bulanan (Periodik)', icon: Calendar },
           ].map((item) => {
             const Icon = item.icon;
             const isActive = subTab === item.id;
@@ -3752,6 +3780,36 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 7: STATISTIK BULANAN & PERIODIK SISWA AKTIF */}
+      {/* ========================================================================= */}
+      {subTab === 'statistik-bulanan' && (
+        <div className="space-y-4">
+          <MonthlyActiveStudentsSummaryCard
+            students={students}
+            projectedStudents={projectedStudents}
+            activeTP={activeTP}
+            activeSemester={activeSemester}
+            availableClasses={availableClasses}
+            schoolProfile={schoolProfile}
+            onSelectDetail={onSelectDetail}
+            onSelectRombelFilter={(rombel) => {
+              setSelectedRombel(rombel);
+              setSelectedTingkat('ALL');
+              setSubTab('daftar');
+              setCurrentPage(1);
+            }}
+            onSelectTingkatFilter={(tingkat) => {
+              setSelectedTingkat(tingkat);
+              setSelectedRombel('ALL');
+              setSubTab('daftar');
+              setCurrentPage(1);
+            }}
+            defaultCollapsed={false}
+          />
         </div>
       )}
       </div>
