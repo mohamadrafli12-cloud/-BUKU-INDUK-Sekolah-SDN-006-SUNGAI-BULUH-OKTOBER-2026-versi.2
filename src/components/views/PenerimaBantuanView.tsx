@@ -25,13 +25,15 @@ import {
   Percent, 
   ChevronRight,
   TrendingUp,
-  HelpCircle
+  HelpCircle,
+  Layers
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useSchool } from '../../context/SchoolContext';
 import { Student, Gender, JenisBantuan } from '../../types';
 import { cn, formatIndonesianDate } from '../../lib/utils';
 import { KopSuratHeader } from '../layout/KopSuratHeader';
+import { RingkasanStatistikBantuan } from '../analytics/RingkasanStatistikBantuan';
 
 interface PenerimaBantuanViewProps {
   onEditStudent: (student: Student, initialTab?: 'pribadi' | 'alamat' | 'ortu' | 'kesehatan' | 'masuk' | 'bantuan') => void;
@@ -55,6 +57,7 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
   const [filterJenis, setFilterJenis] = useState<string>('ALL');
   const [filterKelas, setFilterKelas] = useState<string>('ALL');
   const [filterGender, setFilterGender] = useState<string>('ALL');
+  const [filterTahap, setFilterTahap] = useState<string>('ALL');
   const [sortBy, setSortBy] = useState<'nama' | 'kelas' | 'jenis'>('nama');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
@@ -112,6 +115,22 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
     });
   }, [students, selectedTP, activeTP]);
 
+  // List of unique Tahap options available in current dataset or standard terms
+  const availableTahapOptions = useMemo(() => {
+    const tahapSet = new Set<string>();
+    recipientsInSelectedTP.forEach(s => {
+      const t = s.tahapBantuan ? s.tahapBantuan.trim() : 'Tahap 1';
+      if (t) tahapSet.add(t);
+    });
+    // Ensure common stages are available if user wants to filter
+    ['Tahap 1', 'Tahap 2', 'Tahap 3', 'Tahap 4', 'Semester Ganjil', 'Semester Genap'].forEach(def => {
+      if (recipientsInSelectedTP.some(s => (s.tahapBantuan || 'Tahap 1').toLowerCase() === def.toLowerCase())) {
+        tahapSet.add(def);
+      }
+    });
+    return Array.from(tahapSet);
+  }, [recipientsInSelectedTP]);
+
   // Filtered & Sorted Recipients for Table Display
   const filteredRecipients = useMemo(() => {
     return recipientsInSelectedTP.filter(s => {
@@ -141,7 +160,14 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
       // Gender filter
       const matchGender = filterGender === 'ALL' || s.jenisKelamin === filterGender;
 
-      return matchSearch && matchJenis && matchKelas && matchGender;
+      // Tahap filter
+      let matchTahap = true;
+      if (filterTahap !== 'ALL') {
+        const sTahap = s.tahapBantuan ? s.tahapBantuan.trim() : 'Tahap 1';
+        matchTahap = sTahap.toLowerCase() === filterTahap.toLowerCase();
+      }
+
+      return matchSearch && matchJenis && matchKelas && matchGender && matchTahap;
     }).sort((a, b) => {
       let comparison = 0;
       if (sortBy === 'nama') {
@@ -155,7 +181,7 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
       }
       return sortOrder === 'asc' ? comparison : -comparison;
     });
-  }, [recipientsInSelectedTP, searchQuery, filterJenis, filterKelas, filterGender, sortBy, sortOrder]);
+  }, [recipientsInSelectedTP, searchQuery, filterJenis, filterKelas, filterGender, filterTahap, sortBy, sortOrder]);
 
   // =========================================================================
   // STATISTIK PERHITUNGAN BANTUAN (Sesuai instruksi: "buatkan statik nya")
@@ -183,6 +209,8 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
       'Kelas 6': { total: 0, l: 0, p: 0 },
     };
 
+    const tahapCounts: Record<string, number> = {};
+
     recipientsInSelectedTP.forEach(s => {
       const types = getStudentBantuanTypes(s);
       if (types.includes('Penerima PIP')) countPIP++;
@@ -201,6 +229,9 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
         if (s.jenisKelamin === 'L') kelasCounts[cleanK].l++;
         else kelasCounts[cleanK].p++;
       }
+
+      const t = s.tahapBantuan ? s.tahapBantuan.trim() : 'Tahap 1';
+      tahapCounts[t] = (tahapCounts[t] || 0) + 1;
     });
 
     return {
@@ -217,6 +248,7 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
       persenL: totalPenerima > 0 ? Math.round((totalL / totalPenerima) * 100) : 0,
       persenP: totalPenerima > 0 ? Math.round((totalP / totalPenerima) * 100) : 0,
       kelasCounts,
+      tahapCounts,
     };
   }, [recipientsInSelectedTP, activeStudentsInSchool]);
 
@@ -276,6 +308,7 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
 
       const summaryRows = [
         { 'Kategori': 'Tahun Pelajaran Acuan', 'Jumlah': selectedTP === 'ALL' ? 'Semua Tahun' : selectedTP },
+        { 'Kategori': 'Filter Termin / Tahap', 'Jumlah': filterTahap === 'ALL' ? 'Semua Tahap' : filterTahap },
         { 'Kategori': 'Total Siswa Penerima Bantuan', 'Jumlah': stats.totalPenerima },
         { 'Kategori': 'Total Siswa Aktif Sekolah', 'Jumlah': stats.totalSiswaAktif },
         { 'Kategori': 'Persentase Penerima', 'Jumlah': `${stats.persenDariTotal}%` },
@@ -429,192 +462,17 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. STATISTIK LENGKAP PENERIMA BANTUAN ("buatkan statik nya") */}
+      {/* 2. KOMPONEN RINGKASAN STATISTIK PENERIMA BANTUAN */}
       {/* ========================================================================= */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-blue-600" />
-            <span>Statistik Rekapitulasi Bantuan TP {selectedTP === 'ALL' ? 'Semua Tahun' : selectedTP}</span>
-          </h3>
-          <span className="text-[11px] font-bold text-slate-500">
-            {stats.totalPenerima} dari {stats.totalSiswaAktif} Siswa Aktif ({stats.persenDariTotal}%)
-          </span>
-        </div>
-
-        {/* Kartu Ringkasan Statistik */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {/* Card 1: Total Penerima */}
-          <div className="bg-gradient-to-br from-blue-600 to-[#002b80] rounded-2xl p-4 text-white shadow-sm flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-blue-200 uppercase tracking-wider">Total Penerima</span>
-              <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-amber-300">
-                <Users className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-2">
-              <div className="text-2xl font-black">{stats.totalPenerima}</div>
-              <div className="text-[10px] text-blue-200 mt-0.5">
-                {stats.persenDariTotal}% dari total siswa
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2: PIP Kemdikbud */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-blue-200 dark:border-blue-900/60 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">Penerima PIP</span>
-              <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-950 flex items-center justify-center text-blue-600 dark:text-blue-400">
-                <CreditCard className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-2">
-              <div className="text-2xl font-black text-slate-900 dark:text-slate-100">{stats.countPIP}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">
-                Program Indonesia Pintar
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: Baznas */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-emerald-200 dark:border-emerald-900/60 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">Baznas</span>
-              <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                <Landmark className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-2">
-              <div className="text-2xl font-black text-slate-900 dark:text-slate-100">{stats.countBaznas}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">
-                Badan Amil Zakat Nasional
-              </div>
-            </div>
-          </div>
-
-          {/* Card 4: Bantuan Sekolah */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-indigo-200 dark:border-indigo-900/60 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">Bantuan Sekolah</span>
-              <div className="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-950 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                <School className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-2">
-              <div className="text-2xl font-black text-slate-900 dark:text-slate-100">{stats.countSekolah}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">
-                Subsidi Komite / Sekolah
-              </div>
-            </div>
-          </div>
-
-          {/* Card 5: Bantuan dari Desa */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-orange-200 dark:border-orange-900/60 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-orange-700 dark:text-orange-300 uppercase tracking-wider">Bantuan Desa</span>
-              <div className="w-7 h-7 rounded-lg bg-orange-100 dark:bg-orange-950 flex items-center justify-center text-orange-600 dark:text-orange-400">
-                <MapPin className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-2">
-              <div className="text-2xl font-black text-slate-900 dark:text-slate-100">{stats.countDesa}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">
-                Alokasi Dana Desa / BLT
-              </div>
-            </div>
-          </div>
-
-          {/* Card 6: Bantuan Lainnya */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-amber-200 dark:border-amber-900/60 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider">Bantuan Lainnya</span>
-              <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-950 flex items-center justify-center text-amber-600 dark:text-amber-400">
-                <Sparkles className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-2">
-              <div className="text-2xl font-black text-slate-900 dark:text-slate-100">{stats.countLainnya}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">
-                CSR / Yayasan / Donatur
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Visual Bar Breakdown: Program & Per-Tingkat Kelas */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Box 1: Sebaran Program Bantuan */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                <HandCoins className="w-4 h-4 text-blue-600" />
-                <span>Proporsi Jenis Program Bantuan</span>
-              </span>
-              <span className="text-[11px] font-bold text-slate-500">
-                Rasio Gender: {stats.totalL} L ({stats.persenL}%) / {stats.totalP} P ({stats.persenP}%)
-              </span>
-            </div>
-
-            <div className="space-y-2.5 pt-1">
-              {[
-                { name: 'Penerima PIP', count: stats.countPIP, color: 'bg-blue-600', textColor: 'text-blue-700 dark:text-blue-300' },
-                { name: 'Baznas', count: stats.countBaznas, color: 'bg-emerald-600', textColor: 'text-emerald-700 dark:text-emerald-300' },
-                { name: 'Bantuan Sekolah', count: stats.countSekolah, color: 'bg-indigo-600', textColor: 'text-indigo-700 dark:text-indigo-300' },
-                { name: 'Bantuan dari desa', count: stats.countDesa, color: 'bg-orange-500', textColor: 'text-orange-700 dark:text-orange-300' },
-                { name: 'Bantuan Lainnya', count: stats.countLainnya, color: 'bg-amber-500', textColor: 'text-amber-700 dark:text-amber-300' },
-              ].map(item => {
-                const pct = stats.totalPenerima > 0 ? Math.round((item.count / stats.totalPenerima) * 100) : 0;
-                return (
-                  <div key={item.name} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className={cn("font-bold", item.textColor)}>{item.name}</span>
-                      <span className="font-mono font-bold text-slate-600 dark:text-slate-400">
-                        {item.count} siswa <span className="text-slate-400 font-normal">({pct}%)</span>
-                      </span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                      <div
-                        className={cn("h-full rounded-full transition-all duration-500", item.color)}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Box 2: Distribusi Penerima per Tingkat Kelas */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                <School className="w-4 h-4 text-blue-600" />
-                <span>Distribusi Penerima per Tingkat Kelas</span>
-              </span>
-              <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400">
-                Kelas 1 s/d Kelas 6
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
-              {['Kelas 1', 'Kelas 2', 'Kelas 3', 'Kelas 4', 'Kelas 5', 'Kelas 6'].map(cls => {
-                const data = stats.kelasCounts[cls] || { total: 0, l: 0, p: 0 };
-                return (
-                  <div key={cls} className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 space-y-1 text-center">
-                    <div className="text-xs font-bold text-slate-700 dark:text-slate-300">{cls}</div>
-                    <div className="text-xl font-black text-blue-900 dark:text-blue-300">{data.total} <span className="text-xs font-normal text-slate-500">Siswa</span></div>
-                    <div className="flex items-center justify-center gap-2 text-[10px] text-slate-500 pt-0.5">
-                      <span className="text-blue-600 font-bold">{data.l} L</span>
-                      <span>•</span>
-                      <span className="text-rose-600 font-bold">{data.p} P</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
+      <RingkasanStatistikBantuan
+        stats={stats}
+        selectedTP={selectedTP}
+        activeTP={activeTP}
+        onFilterJenis={(jenis) => setFilterJenis(jenis)}
+        activeFilterJenis={filterJenis}
+        onFilterTahap={(tahap) => setFilterTahap(tahap)}
+        activeFilterTahap={filterTahap}
+      />
 
       {/* ========================================================================= */}
       {/* 3. TOOLBAR FILTER & SEARCH */}
@@ -649,6 +507,18 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
               <option value="Bantuan Lainnya">Bantuan Lainnya</option>
             </select>
 
+            {/* Filter Tahap / Termin */}
+            <select
+              value={filterTahap}
+              onChange={(e) => setFilterTahap(e.target.value)}
+              className="px-3 py-2 text-xs font-bold rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-900 dark:text-indigo-200 cursor-pointer"
+            >
+              <option value="ALL">Semua Tahap / Termin</option>
+              {availableTahapOptions.map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+
             {/* Filter Kelas */}
             <select
               value={filterKelas}
@@ -676,7 +546,7 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
             </select>
 
             {/* Reset Filter Button */}
-            {(searchQuery || filterJenis !== 'ALL' || filterKelas !== 'ALL' || filterGender !== 'ALL') && (
+            {(searchQuery || filterJenis !== 'ALL' || filterKelas !== 'ALL' || filterGender !== 'ALL' || filterTahap !== 'ALL') && (
               <button
                 type="button"
                 onClick={() => {
@@ -684,6 +554,7 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                   setFilterJenis('ALL');
                   setFilterKelas('ALL');
                   setFilterGender('ALL');
+                  setFilterTahap('ALL');
                 }}
                 className="px-2.5 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors cursor-pointer"
                 title="Reset semua filter"
@@ -693,6 +564,53 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
             )}
           </div>
         </div>
+
+        {/* Quick Filter Bar by Tahap / Termin */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-2.5 border-t border-slate-100 dark:border-slate-800 text-xs">
+          <span className="text-[11px] font-bold text-slate-400 mr-1 flex items-center gap-1">
+            <Layers className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+            <span>Pintas Termin / Tahap:</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setFilterTahap('ALL')}
+            className={cn(
+              "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+              filterTahap === 'ALL'
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+            )}
+          >
+            Semua ({recipientsInSelectedTP.length})
+          </button>
+          {availableTahapOptions.map(t => {
+            const countForTahap = recipientsInSelectedTP.filter(s => (s.tahapBantuan || 'Tahap 1').toLowerCase() === t.toLowerCase()).length;
+            const isCurrent = filterTahap.toLowerCase() === t.toLowerCase();
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setFilterTahap(isCurrent ? 'ALL' : t)}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer",
+                  isCurrent
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                )}
+              >
+                <span>{t}</span>
+                <span className={cn(
+                  "text-[10px] px-1.5 py-0.2 rounded-full font-mono",
+                  isCurrent
+                    ? "bg-white/20 text-white"
+                    : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                )}>
+                  {countForTahap}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* ========================================================================= */}
@@ -700,10 +618,18 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
       {/* ========================================================================= */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <h4 className="text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-blue-600" />
-            <span>Daftar Siswa Penerima Bantuan ({filteredRecipients.length} Siswa)</span>
-          </h4>
+          <div className="flex flex-wrap items-center gap-2">
+            <h4 className="text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-blue-600" />
+              <span>Daftar Siswa Penerima Bantuan ({filteredRecipients.length} Siswa)</span>
+            </h4>
+            {filterTahap !== 'ALL' && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
+                <Layers className="w-3 h-3" />
+                <span>Termin: {filterTahap}</span>
+              </span>
+            )}
+          </div>
           <span className="text-[11px] font-bold text-slate-500">
             Tahun Pelajaran: {selectedTP === 'ALL' ? 'Semua Tahun' : selectedTP}
           </span>
@@ -1107,6 +1033,7 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                 </h2>
                 <p className="text-xs font-bold text-slate-700">
                   TAHUN PELAJARAN: {selectedTP === 'ALL' ? 'SEMUA TAHUN PELAJARAN' : selectedTP}
+                  {filterTahap !== 'ALL' && ` • TERMIN / TAHAP: ${filterTahap.toUpperCase()}`}
                 </p>
               </div>
 
