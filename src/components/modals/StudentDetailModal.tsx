@@ -832,7 +832,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
               </div>
 
               {Boolean((student.penerimaBantuan && student.penerimaBantuan !== 'Tidak' && student.penerimaBantuan !== 'Bukan Penerima') || (student.jenisBantuanList && student.jenisBantuanList.length > 0)) ? (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs bg-white dark:bg-slate-800/80 p-3.5 rounded-xl border border-blue-100 dark:border-blue-900/40">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs bg-white dark:bg-slate-800/80 p-3.5 rounded-xl border border-blue-100 dark:border-blue-900/40">
                   <div>
                     <span className="text-[10.5px] font-bold text-slate-500 block">Program Bantuan:</span>
                     <span className="font-extrabold text-blue-800 dark:text-blue-300">
@@ -845,9 +845,18 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                     )}
                   </div>
                   <div>
-                    <span className="text-[10.5px] font-bold text-slate-500 block">Tahun Pelajaran:</span>
+                    <span className="text-[10.5px] font-bold text-slate-500 block">Tahun & Tahap:</span>
                     <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
                       TP {student.tahunBantuan || schoolProfile?.tahunPelajaranAktif || '2026/2027'}
+                    </span>
+                    <span className="px-1.5 py-0.5 text-[10px] font-extrabold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 rounded ml-1">
+                      {student.tahapBantuan || 'Tahap 1'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10.5px] font-bold text-slate-500 block">Tanggal Menerima:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      {student.tanggalMenerimaBantuan ? formatIndonesianDate(student.tanggalMenerimaBantuan) : '-'}
                     </span>
                     {student.nominalBantuan && (
                       <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-mono font-bold block mt-0.5">

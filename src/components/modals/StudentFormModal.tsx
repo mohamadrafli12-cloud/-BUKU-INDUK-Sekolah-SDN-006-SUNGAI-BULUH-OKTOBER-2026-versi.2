@@ -170,6 +170,8 @@ const getInitialStudentData = (
       jenisBantuanList: studentToEdit.jenisBantuanList || (studentToEdit.penerimaBantuan && studentToEdit.penerimaBantuan !== 'Tidak' ? [studentToEdit.penerimaBantuan] : []),
       bantuanLainnya: studentToEdit.bantuanLainnya || '',
       tahunBantuan: studentToEdit.tahunBantuan || (schoolProfile as any)?.tahunPelajaranAktif || '2026/2027',
+      tahapBantuan: studentToEdit.tahapBantuan || 'Tahap 1',
+      tanggalMenerimaBantuan: studentToEdit.tanggalMenerimaBantuan || '',
       nominalBantuan: studentToEdit.nominalBantuan || '',
       keteranganBantuan: studentToEdit.keteranganBantuan || '',
     };
@@ -267,6 +269,8 @@ const getInitialStudentData = (
     jenisBantuanList: [],
     bantuanLainnya: '',
     tahunBantuan: (schoolProfile as any)?.tahunPelajaranAktif || '2026/2027',
+    tahapBantuan: 'Tahap 1',
+    tanggalMenerimaBantuan: '',
     nominalBantuan: '',
     keteranganBantuan: '',
   };
@@ -2597,58 +2601,115 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                     )}
                   </div>
 
-                  {/* Form Detail Tambahan: Tahun Pelajaran, Nominal, No SK / Keterangan */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-xs">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        Tahun Pelajaran Bantuan <span className="text-rose-500">*</span>
-                      </label>
-                      <select
-                        value={formData.tahunBantuan || schoolProfile?.tahunPelajaranAktif || '2026/2027'}
-                        onChange={(e) => updateField('tahunBantuan', e.target.value)}
-                        className="w-full px-3 py-2 text-xs font-bold rounded-lg border-2 border-blue-500 bg-white dark:bg-slate-800 text-blue-900 dark:text-blue-300 cursor-pointer"
-                      >
-                        {(schoolProfile?.daftarTahunPelajaran || ['2023/2024', '2024/2025', '2025/2026', '2026/2027', '2027/2028']).map(tp => (
-                          <option key={tp} value={tp}>
-                            TP {tp} {tp === (schoolProfile?.tahunPelajaranAktif || '2026/2027') ? '(Aktif)' : ''}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-[10px] text-slate-500 mt-1">
-                        Acuan Tahun Pelajaran di dashboard samping
-                      </p>
+                  {/* Form Detail Tambahan: Tahun Pelajaran, Tahap, Tanggal Menerima, Nominal, No SK / Keterangan */}
+                  <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
+                    <div className="text-xs font-bold text-slate-700 dark:text-slate-300 border-b pb-1.5 border-slate-100 dark:border-slate-700">
+                      Rincian Penyaluran & Penerimaan Bantuan:
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        Nominal / Bentuk Bantuan (Opsional)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.nominalBantuan || ''}
-                        onChange={(e) => updateField('nominalBantuan', e.target.value)}
-                        placeholder="Contoh: Rp 450.000 / tahun"
-                        className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
-                      />
-                      <p className="text-[10px] text-slate-500 mt-1">
-                        Jumlah uang tunai atau bentuk fasilitas
-                      </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {/* 1. Tahun Pelajaran */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Tahun Pelajaran Bantuan <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={formData.tahunBantuan || schoolProfile?.tahunPelajaranAktif || '2026/2027'}
+                          onChange={(e) => updateField('tahunBantuan', e.target.value)}
+                          className="w-full px-3 py-2 text-xs font-bold rounded-lg border-2 border-blue-500 bg-white dark:bg-slate-800 text-blue-900 dark:text-blue-300 cursor-pointer"
+                        >
+                          {(schoolProfile?.daftarTahunPelajaran || ['2023/2024', '2024/2025', '2025/2026', '2026/2027', '2027/2028']).map(tp => (
+                            <option key={tp} value={tp}>
+                              TP {tp} {tp === (schoolProfile?.tahunPelajaranAktif || '2026/2027') ? '(Aktif)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-slate-500 mt-1">
+                          Acuan Tahun Pelajaran dashboard samping
+                        </p>
+                      </div>
+
+                      {/* 2. Tahap Bantuan */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Tahap Penyaluran <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            list="tahap-bantuan-list"
+                            value={formData.tahapBantuan || 'Tahap 1'}
+                            onChange={(e) => updateField('tahapBantuan', e.target.value)}
+                            placeholder="Contoh: Tahap 1, Tahap 2..."
+                            className="w-full px-3 py-2 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                          />
+                          <datalist id="tahap-bantuan-list">
+                            <option value="Tahap 1" />
+                            <option value="Tahap 2" />
+                            <option value="Tahap 3" />
+                            <option value="Tahap 4" />
+                            <option value="Gelombang 1" />
+                            <option value="Gelombang 2" />
+                            <option value="Semester Ganjil" />
+                            <option value="Semester Genap" />
+                          </datalist>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-1">
+                          Tahap 1 / Tahap 2 / Gelombang penyaluran
+                        </p>
+                      </div>
+
+                      {/* 3. Tanggal Menerima */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Tanggal Menerima
+                        </label>
+                        <input
+                          type="date"
+                          value={formData.tanggalMenerimaBantuan || ''}
+                          onChange={(e) => updateField('tanggalMenerimaBantuan', e.target.value)}
+                          className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                        />
+                        <p className="text-[10px] text-slate-500 mt-1">
+                          Tanggal resmi bantuan diterima siswa
+                        </p>
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        Keterangan / No. KIP / SK Bantuan (Opsional)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.keteranganBantuan || ''}
-                        onChange={(e) => updateField('keteranganBantuan', e.target.value)}
-                        placeholder="Contoh: SK Kemenkeu No. 04/2026"
-                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
-                      />
-                      <p className="text-[10px] text-slate-500 mt-1">
-                        Catatan nomor SK, kartu, atau rekomendasi
-                      </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      {/* 4. Nominal */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Nominal / Bentuk Bantuan (Opsional)
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.nominalBantuan || ''}
+                          onChange={(e) => updateField('nominalBantuan', e.target.value)}
+                          placeholder="Contoh: Rp 450.000 / tahun"
+                          className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                        />
+                        <p className="text-[10px] text-slate-500 mt-1">
+                          Jumlah uang tunai atau bentuk fasilitas
+                        </p>
+                      </div>
+
+                      {/* 5. Keterangan / No SK */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Keterangan / No. KIP / SK Bantuan (Opsional)
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.keteranganBantuan || ''}
+                          onChange={(e) => updateField('keteranganBantuan', e.target.value)}
+                          placeholder="Contoh: SK Kemenkeu No. 04/2026"
+                          className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                        />
+                        <p className="text-[10px] text-slate-500 mt-1">
+                          Catatan nomor SK, kartu, atau rekomendasi
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>

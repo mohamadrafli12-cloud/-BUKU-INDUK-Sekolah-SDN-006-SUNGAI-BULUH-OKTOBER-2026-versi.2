@@ -201,6 +201,8 @@ export interface Student {
   jenisBantuanList?: string[]; // Daftar jenis bantuan yang dipilih (bisa lebih dari satu)
   bantuanLainnya?: string; // Teks kustom bantuan lainnya yang diisi sendiri
   tahunBantuan?: string; // Tahun Pelajaran bantuan (contoh: "2026/2027")
+  tahapBantuan?: string; // Tahap penyaluran bantuan (contoh: "Tahap 1", "Tahap 2", "Tahap 3")
+  tanggalMenerimaBantuan?: string; // Tanggal menerima bantuan (YYYY-MM-DD)
   nominalBantuan?: string; // Nominal bantuan (contoh: "Rp 450.000 / tahun")
   keteranganBantuan?: string; // Catatan/No KIP/SK Penerima Bantuan
 

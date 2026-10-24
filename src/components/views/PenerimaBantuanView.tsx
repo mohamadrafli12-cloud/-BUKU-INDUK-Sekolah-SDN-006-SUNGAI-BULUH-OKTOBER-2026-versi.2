@@ -67,6 +67,8 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
   const [quickJenisList, setQuickJenisList] = useState<string[]>(['Penerima PIP']);
   const [quickBantuanLainnya, setQuickBantuanLainnya] = useState<string>('');
   const [quickTahunBantuan, setQuickTahunBantuan] = useState<string>(activeTP);
+  const [quickTahap, setQuickTahap] = useState<string>('Tahap 1');
+  const [quickTanggalMenerima, setQuickTanggalMenerima] = useState<string>(new Date().toISOString().split('T')[0]);
   const [quickNominal, setQuickNominal] = useState<string>('Rp 450.000 / tahun');
   const [quickKeterangan, setQuickKeterangan] = useState<string>('');
 
@@ -238,15 +240,19 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
       jenisBantuanList: quickJenisList,
       bantuanLainnya: quickJenisList.includes('Bantuan Lainnya') ? quickBantuanLainnya : '',
       tahunBantuan: quickTahunBantuan,
+      tahapBantuan: quickTahap,
+      tanggalMenerimaBantuan: quickTanggalMenerima,
       nominalBantuan: quickNominal,
       keteranganBantuan: quickKeterangan,
     });
 
-    logActivity('EDIT', `Menetapkan status penerima bantuan untuk ${targetStudent.namaLengkap} (${quickJenisList.join(', ')})`);
+    logActivity('EDIT', `Menetapkan status penerima bantuan untuk ${targetStudent.namaLengkap} (${quickJenisList.join(', ')} - ${quickTahap})`);
     setIsQuickAddOpen(false);
     setQuickStudentId('');
     setQuickBantuanLainnya('');
     setQuickKeterangan('');
+    setQuickTahap('Tahap 1');
+    setQuickTanggalMenerima(new Date().toISOString().split('T')[0]);
   };
 
   // Handler: Export to Excel (.xlsx)
@@ -262,6 +268,8 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
         'Program / Jenis Bantuan': getStudentBantuanTypes(s).join(', '),
         'Rincian / Bantuan Lainnya': s.bantuanLainnya || '-',
         'Tahun Pelajaran': getBantuanYear(s),
+        'Tahap Bantuan': s.tahapBantuan || 'Tahap 1',
+        'Tanggal Menerima': s.tanggalMenerimaBantuan ? formatIndonesianDate(s.tanggalMenerimaBantuan) : '-',
         'Nominal Bantuan': s.nominalBantuan || '-',
         'Keterangan / No. SK': s.keteranganBantuan || '-',
       }));
@@ -712,6 +720,8 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                 <th className="py-3 px-3.5">Program Bantuan</th>
                 <th className="py-3 px-3.5">Rincian / Bantuan Lainnya</th>
                 <th className="py-3 px-3.5">Tahun Pelajaran</th>
+                <th className="py-3 px-3.5">Tahap</th>
+                <th className="py-3 px-3.5">Tgl Menerima</th>
                 <th className="py-3 px-3.5">Nominal</th>
                 <th className="py-3 px-3.5">Keterangan / No. SK</th>
                 <th className="py-3 px-3.5 text-center w-28">Aksi</th>
@@ -720,7 +730,7 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredRecipients.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-12 text-slate-500">
+                  <td colSpan={12} className="text-center py-12 text-slate-500">
                     <HandCoins className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
                     <p className="font-bold text-sm">Tidak ada siswa penerima bantuan yang sesuai kriteria.</p>
                     <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
@@ -792,6 +802,21 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                         )}>
                           TP {bYear}
                         </span>
+                      </td>
+                      <td className="py-3 px-3.5">
+                        <span className="px-2 py-0.5 rounded-md font-semibold text-[10.5px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 whitespace-nowrap">
+                          {s.tahapBantuan || 'Tahap 1'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3.5 text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                        {s.tanggalMenerimaBantuan ? (
+                          <div className="flex items-center gap-1 font-medium text-[11px]">
+                            <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span>{formatIndonesianDate(s.tanggalMenerimaBantuan)}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
                       </td>
                       <td className="py-3 px-3.5 font-mono font-bold text-emerald-700 dark:text-emerald-400">
                         {s.nominalBantuan || '-'}
@@ -933,7 +958,7 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                 </div>
               )}
 
-              {/* Tahun Pelajaran & Nominal */}
+              {/* Tahun Pelajaran & Tahap */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -948,6 +973,45 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                       <option key={tp} value={tp}>TP {tp}</option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Tahap Penyaluran
+                  </label>
+                  <input
+                    type="text"
+                    list="quick-tahap-options"
+                    value={quickTahap}
+                    onChange={(e) => setQuickTahap(e.target.value)}
+                    placeholder="Contoh: Tahap 1, Tahap 2, dst."
+                    className="w-full px-3 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                  />
+                  <datalist id="quick-tahap-options">
+                    <option value="Tahap 1" />
+                    <option value="Tahap 2" />
+                    <option value="Tahap 3" />
+                    <option value="Tahap 4" />
+                    <option value="Gelombang 1" />
+                    <option value="Gelombang 2" />
+                    <option value="Semester Ganjil" />
+                    <option value="Semester Genap" />
+                  </datalist>
+                </div>
+              </div>
+
+              {/* Tanggal Menerima & Nominal */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Tanggal Menerima
+                  </label>
+                  <input
+                    type="date"
+                    value={quickTanggalMenerima}
+                    onChange={(e) => setQuickTanggalMenerima(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                  />
                 </div>
 
                 <div>
@@ -1073,10 +1137,11 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                     <th className="p-2 border border-slate-300 text-center w-8">No</th>
                     <th className="p-2 border border-slate-300">Nama Siswa</th>
                     <th className="p-2 border border-slate-300">NIS / NISN</th>
-                    <th className="p-2 border border-slate-300 text-center w-12">L/P</th>
+                    <th className="p-2 border border-slate-300 text-center w-10">L/P</th>
                     <th className="p-2 border border-slate-300 text-center">Kelas</th>
                     <th className="p-2 border border-slate-300">Program Bantuan</th>
-                    <th className="p-2 border border-slate-300">Rincian Bantuan</th>
+                    <th className="p-2 border border-slate-300 text-center">Tahap</th>
+                    <th className="p-2 border border-slate-300 text-center">Tgl Menerima</th>
                     <th className="p-2 border border-slate-300">Nominal</th>
                     <th className="p-2 border border-slate-300">No. SK / Ket</th>
                   </tr>
@@ -1089,8 +1154,14 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                       <td className="p-2 border border-slate-300 font-mono text-[10px]">{s.noInduk} / {s.nisn}</td>
                       <td className="p-2 border border-slate-300 text-center font-bold">{s.jenisKelamin}</td>
                       <td className="p-2 border border-slate-300 text-center font-bold">{s.kelasSekarang}</td>
-                      <td className="p-2 border border-slate-300 font-bold">{getStudentBantuanTypes(s).join(', ')}</td>
-                      <td className="p-2 border border-slate-300">{s.bantuanLainnya || '-'}</td>
+                      <td className="p-2 border border-slate-300 font-bold">
+                        {getStudentBantuanTypes(s).join(', ')}
+                        {s.bantuanLainnya ? ` (${s.bantuanLainnya})` : ''}
+                      </td>
+                      <td className="p-2 border border-slate-300 text-center">{s.tahapBantuan || 'Tahap 1'}</td>
+                      <td className="p-2 border border-slate-300 text-center text-[10px]">
+                        {s.tanggalMenerimaBantuan ? formatIndonesianDate(s.tanggalMenerimaBantuan) : '-'}
+                      </td>
                       <td className="p-2 border border-slate-300 font-mono">{s.nominalBantuan || '-'}</td>
                       <td className="p-2 border border-slate-300 text-[10px]">{s.keteranganBantuan || '-'}</td>
                     </tr>
