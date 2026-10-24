@@ -33,7 +33,9 @@ import {
   ChevronRight,
   ArrowLeft,
   ArrowRight,
-  HandCoins
+  HandCoins,
+  Landmark,
+  CheckCircle
 } from 'lucide-react';
 import { Student } from '../../types';
 import { formatIndonesianDate, cn } from '../../lib/utils';
@@ -76,7 +78,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   studentList,
 }) => {
   const { students, currentRole, activityLogs, schoolProfile, rolePermissions, updateStudent, updateFotoIjazah, updateFotoIjazahMutasi } = useSchool();
-  const [activeTab, setActiveTab] = useState<'profil' | 'keluarga' | 'kesehatan' | 'raport' | 'kelulusan' | 'riwayat'>('profil');
+  const [activeTab, setActiveTab] = useState<'profil' | 'keluarga' | 'kesehatan' | 'raport' | 'kelulusan' | 'riwayat_bantuan' | 'riwayat'>('profil');
 
   // Navigation scope: 'semua' (all students) or 'kelas' (current student's class only)
   const [navScope, setNavScope] = useState<'semua' | 'kelas'>('semua');
@@ -262,6 +264,42 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
   const creatorName = student.dibuatOleh || 'Rahmat Hidayat, S.Kom. (Operator TU)';
   const updaterName = student.terakhirDiubahOleh || student.dibuatOleh || 'Rahmat Hidayat, S.Kom. (Operator TU)';
+
+  // Assistance & social aid detection
+  const isPenerimaBantuan = Boolean(
+    (student.penerimaBantuan && student.penerimaBantuan !== 'Tidak' && student.penerimaBantuan !== 'Bukan Penerima Bantuan') ||
+    (student.jenisBantuanList && student.jenisBantuanList.length > 0) ||
+    (student.penerimaKip && student.penerimaKip.toLowerCase() === 'ya') ||
+    (student.penerimaKps && student.penerimaKps.toLowerCase() === 'ya') ||
+    (student.layakPip && student.layakPip.toLowerCase() === 'ya')
+  );
+
+  const activeAssistanceTypes: string[] = React.useMemo(() => {
+    if (student.jenisBantuanList && student.jenisBantuanList.length > 0) {
+      return student.jenisBantuanList;
+    }
+    if (student.penerimaBantuan && student.penerimaBantuan !== 'Tidak' && student.penerimaBantuan !== 'Bukan Penerima Bantuan') {
+      return student.penerimaBantuan.split(',').map((s: string) => s.trim()).filter(Boolean);
+    }
+    return [];
+  }, [student.jenisBantuanList, student.penerimaBantuan]);
+
+  const aidLogs = React.useMemo(() => {
+    return studentLogs.filter((log) => {
+      const text = ((log.description || '') + ' ' + (log.action || '')).toLowerCase();
+      return (
+        text.includes('bantuan') ||
+        text.includes('pip') ||
+        text.includes('baznas') ||
+        text.includes('beasiswa') ||
+        text.includes('kps') ||
+        text.includes('kip') ||
+        text.includes('kks') ||
+        text.includes('tahap') ||
+        text.includes('keringanan')
+      );
+    });
+  }, [studentLogs]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
@@ -506,11 +544,11 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
         </div>
 
         {/* Tab Header */}
-        <div className="flex border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6">
+        <div className="flex border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab('profil')}
             className={cn(
-              "px-4 py-2.5 text-xs font-bold border-b-2 transition-all",
+              "px-4 py-2.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap",
               activeTab === 'profil'
                 ? "border-blue-600 text-blue-600 dark:text-blue-400"
                 : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
@@ -521,7 +559,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
           <button
             onClick={() => setActiveTab('keluarga')}
             className={cn(
-              "px-4 py-2.5 text-xs font-bold border-b-2 transition-all",
+              "px-4 py-2.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap",
               activeTab === 'keluarga'
                 ? "border-blue-600 text-blue-600 dark:text-blue-400"
                 : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
@@ -532,7 +570,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
           <button
             onClick={() => setActiveTab('kesehatan')}
             className={cn(
-              "px-4 py-2.5 text-xs font-bold border-b-2 transition-all",
+              "px-4 py-2.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap",
               activeTab === 'kesehatan'
                 ? "border-blue-600 text-blue-600 dark:text-blue-400"
                 : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
@@ -543,7 +581,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
           <button
             onClick={() => setActiveTab('raport')}
             className={cn(
-              "px-4 py-2.5 text-xs font-bold border-b-2 transition-all",
+              "px-4 py-2.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap",
               activeTab === 'raport'
                 ? "border-blue-600 text-blue-600 dark:text-blue-400"
                 : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
@@ -554,7 +592,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
           <button
             onClick={() => setActiveTab('kelulusan')}
             className={cn(
-              "px-4 py-2.5 text-xs font-bold border-b-2 transition-all",
+              "px-4 py-2.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap",
               activeTab === 'kelulusan'
                 ? "border-blue-600 text-blue-600 dark:text-blue-400"
                 : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
@@ -563,9 +601,24 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
             Mutasi & STTB/Ijazah
           </button>
           <button
+            onClick={() => setActiveTab('riwayat_bantuan')}
+            className={cn(
+              "px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap",
+              activeTab === 'riwayat_bantuan'
+                ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+            )}
+          >
+            <HandCoins className="w-3.5 h-3.5" />
+            <span>Riwayat Bantuan</span>
+            {isPenerimaBantuan && (
+              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
+            )}
+          </button>
+          <button
             onClick={() => setActiveTab('riwayat')}
             className={cn(
-              "px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5",
+              "px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap",
               activeTab === 'riwayat'
                 ? "border-blue-600 text-blue-600 dark:text-blue-400"
                 : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
@@ -1554,7 +1607,330 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
             </div>
           )}
 
-          {/* TAB 6: RIWAYAT & AUDIT LOG */}
+          {/* TAB 6: RIWAYAT BANTUAN */}
+          {activeTab === 'riwayat_bantuan' && (
+            <div className="space-y-6">
+              {/* Header Banner Status Bantuan */}
+              <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-gradient-to-br from-amber-50/60 via-white to-blue-50/40 dark:from-slate-800/60 dark:via-slate-900 dark:to-slate-800/40 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-12 h-12 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-200 dark:border-amber-800">
+                    <HandCoins className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-base">
+                        Riwayat & Penyaluran Bantuan Siswa
+                      </h3>
+                      <span className={cn(
+                        "px-2.5 py-0.5 rounded-full text-[11px] font-bold border",
+                        isPenerimaBantuan
+                          ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                      )}>
+                        {isPenerimaBantuan ? "Penerima Bantuan Aktif" : "Bukan Penerima Bantuan"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Dokumentasi historis penyaluran Program Indonesia Pintar (PIP), Baznas, Bantuan Sekolah, dan program sosial lainnya.
+                    </p>
+                  </div>
+                </div>
+
+                {currentRole !== 'umum' && (
+                  <button
+                    type="button"
+                    onClick={() => onEdit(student, 'bantuan')}
+                    className="flex items-center gap-2 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer self-start sm:self-auto"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Perbarui Data Bantuan</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Data Bantuan Berjalan / Terdaftar */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs">
+                  <span className="text-[11px] font-semibold text-slate-500 block mb-1.5 flex items-center gap-1.5">
+                    <Award className="w-3.5 h-3.5 text-amber-500" />
+                    Jenis Bantuan
+                  </span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {activeAssistanceTypes.length > 0 ? (
+                      activeAssistanceTypes.map((jenis, idx) => (
+                        <span 
+                          key={idx}
+                          className="px-2 py-0.5 rounded-md text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
+                        >
+                          {jenis}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs font-semibold text-slate-400">Tidak ada bantuan aktif</span>
+                    )}
+                    {student.bantuanLainnya && (
+                      <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                        {student.bantuanLainnya}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs">
+                  <span className="text-[11px] font-semibold text-slate-500 block mb-1.5 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-blue-500" />
+                    Tahap & Termin
+                  </span>
+                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-1">
+                    {student.tahapBantuan || (isPenerimaBantuan ? 'Tahap 1' : '-')}
+                  </p>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                    Tahun Pelajaran: {student.tahunBantuan || schoolProfile?.tahunPelajaranAktif || '2026/2027'}
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs">
+                  <span className="text-[11px] font-semibold text-slate-500 block mb-1.5 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-emerald-500" />
+                    Tanggal Menerima
+                  </span>
+                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-1">
+                    {student.tanggalMenerimaBantuan 
+                      ? formatIndonesianDate(student.tanggalMenerimaBantuan)
+                      : (isPenerimaBantuan ? 'Belum Tercatat' : '-')}
+                  </p>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                    Status: {student.tanggalMenerimaBantuan ? 'Sudah Disalurkan' : (isPenerimaBantuan ? 'Menunggu Penyaluran' : '-')}
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs">
+                  <span className="text-[11px] font-semibold text-slate-500 block mb-1.5 flex items-center gap-1.5">
+                    <CreditCard className="w-3.5 h-3.5 text-purple-500" />
+                    Nominal Bantuan
+                  </span>
+                  <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                    {student.nominalBantuan || (isPenerimaBantuan ? 'Sesuai Ketentuan' : '-')}
+                  </p>
+                  <span className="text-[10px] text-slate-400 block mt-0.5 truncate" title={student.keteranganBantuan || 'Tidak ada SK'}>
+                    SK: {student.keteranganBantuan || 'Reguler'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Data Dapodik & Perbankan Penyaluran */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Identitas Kartu Sosial */}
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2">
+                    <FileCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <span>Identitas Kartu Bantuan Sosial (Dapodik)</span>
+                  </h4>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                      <span className="text-slate-500">Penerima KIP (Kartu Indonesia Pintar):</span>
+                      <strong className={student.penerimaKip?.toLowerCase() === 'ya' ? "text-emerald-600 dark:text-emerald-400" : "text-slate-700 dark:text-slate-300"}>
+                        {student.penerimaKip || 'Tidak'}
+                      </strong>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                      <span className="text-slate-500">Nomor KIP:</span>
+                      <strong className="font-mono text-slate-800 dark:text-slate-200">{student.nomorKip || '-'}</strong>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                      <span className="text-slate-500">Nama Tertera di KIP:</span>
+                      <strong className="text-slate-800 dark:text-slate-200">{student.namaDiKip || student.namaLengkap}</strong>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                      <span className="text-slate-500">Status Kelayakan PIP:</span>
+                      <strong className={student.layakPip?.toLowerCase() === 'ya' ? "text-emerald-600 dark:text-emerald-400" : "text-slate-700 dark:text-slate-300"}>
+                        {student.layakPip || 'Tidak'}
+                      </strong>
+                    </div>
+                    {student.alasanLayakPip && (
+                      <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                        <span className="text-slate-500">Alasan Layak PIP:</span>
+                        <span className="text-slate-700 dark:text-slate-300 font-medium">{student.alasanLayakPip}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                      <span className="text-slate-500">Penerima KPS / PKH:</span>
+                      <strong className="text-slate-800 dark:text-slate-200">{student.penerimaKps || 'Tidak'} {student.noKps ? `(No: ${student.noKps})` : ''}</strong>
+                    </div>
+                    <div className="flex justify-between py-1">
+                      <span className="text-slate-500">Nomor KKS:</span>
+                      <strong className="font-mono text-slate-800 dark:text-slate-200">{student.nomorKks || '-'}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rekening Penyaluran Perbankan */}
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2">
+                    <Landmark className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>Rekening Penyaluran Bantuan / Bank Siswa</span>
+                  </h4>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                      <span className="text-slate-500">Bank Penyalur:</span>
+                      <strong className="text-slate-800 dark:text-slate-200">{student.bank || 'Bank Rakyat Indonesia (BRI)'}</strong>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                      <span className="text-slate-500">Nomor Rekening Bank:</span>
+                      <strong className="font-mono text-blue-700 dark:text-blue-300 font-bold">{student.nomorRekeningBank || '-'}</strong>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                      <span className="text-slate-500">Rekening Atas Nama:</span>
+                      <strong className="text-slate-800 dark:text-slate-200">{student.rekeningAtasNama || student.namaLengkap}</strong>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                      <span className="text-slate-500">Jenis Tabungan:</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-medium">Simpanan Pelajar (SimPel) / Penyaluran Bansos</span>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 mt-2">
+                      <span className="text-[11px] text-slate-500 block mb-0.5">Catatan / No. SK Penetapan Bantuan:</span>
+                      <p className="text-xs text-slate-800 dark:text-slate-200 font-medium">
+                        {student.keteranganBantuan || 'Belum ada SK penetapan khusus yang dicatat.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tabel Historis Penyaluran & Catatan Mutasi Bantuan */}
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
+                    <History className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <span>Daftar Historis Penerimaan Bantuan & Catatan Terkait</span>
+                  </h4>
+                  <span className="text-[11px] text-slate-400">
+                    Buku Induk Siswa Resmi
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
+                        <th className="py-2.5 px-3 font-bold">Periode / Tanggal</th>
+                        <th className="py-2.5 px-3 font-bold">Program / Bantuan</th>
+                        <th className="py-2.5 px-3 font-bold">Tahap</th>
+                        <th className="py-2.5 px-3 font-bold">Nominal</th>
+                        <th className="py-2.5 px-3 font-bold">Keterangan / Dasar Pencatatan</th>
+                        <th className="py-2.5 px-3 font-bold">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {isPenerimaBantuan ? (
+                        <>
+                          {/* Record Bantuan Aktif */}
+                          <tr className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors">
+                            <td className="py-2.5 px-3 font-mono font-medium text-slate-800 dark:text-slate-200">
+                              {student.tanggalMenerimaBantuan 
+                                ? formatIndonesianDate(student.tanggalMenerimaBantuan)
+                                : (student.tahunBantuan || '2026/2027')}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span className="font-bold text-slate-900 dark:text-slate-100">
+                                {activeAssistanceTypes.join(', ') || student.penerimaBantuan || 'Bantuan Pendidikan'}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                              {student.tahapBantuan || 'Tahap 1'}
+                            </td>
+                            <td className="py-2.5 px-3 font-bold text-emerald-600 dark:text-emerald-400">
+                              {student.nominalBantuan || 'Rp 450.000'}
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 max-w-xs truncate" title={student.keteranganBantuan || 'Tercatat di Buku Induk'}>
+                              {student.keteranganBantuan || 'Tercatat resmi dalam penetapan penerima bantuan'}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
+                                <CheckCircle className="w-3 h-3" />
+                                Tersalurkan
+                              </span>
+                            </td>
+                          </tr>
+
+                          {/* Catatan dari Mutasi jika ada */}
+                          {student.mutasi && (
+                            <tr className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors bg-blue-50/20 dark:bg-blue-950/10">
+                              <td className="py-2.5 px-3 font-mono text-slate-700 dark:text-slate-300">
+                                {student.mutasi.tanggalMutasi ? formatIndonesianDate(student.mutasi.tanggalMutasi) : '-'}
+                              </td>
+                              <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-200">
+                                Mutasi Siswa ({student.mutasi.jenisMutasi})
+                              </td>
+                              <td className="py-2.5 px-3 text-slate-500">
+                                Kelas {student.mutasi.kelasTujuan || student.kelasSekarang}
+                              </td>
+                              <td className="py-2.5 px-3 text-slate-500">-</td>
+                              <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">
+                                {student.mutasi.alasanPindah || student.mutasi.sekolahTujuan || 'Catatan mutasi berkas & bantuan siswa'}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300">
+                                  Tercatat
+                                </span>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-slate-400 dark:text-slate-500">
+                            <HandCoins className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                            <p className="font-semibold text-xs">Belum ada catatan historis bantuan untuk siswa ini.</p>
+                            <p className="text-[11px] mt-1 text-slate-400">
+                              Klik tombol "Perbarui Data Bantuan" di atas untuk menambahkan bantuan PIP, Baznas, Bantuan Sekolah, atau Bantuan Desa.
+                            </p>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Riwayat Log Sistem Terkait Bantuan Siswa */}
+              {aidLogs.length > 0 && (
+                <div className="space-y-2">
+                  <h5 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-slate-500" />
+                    <span>Audit Trail / Log Perubahan Data Bantuan Siswa</span>
+                  </h5>
+                  <div className="space-y-1.5">
+                    {aidLogs.map((log) => (
+                      <div
+                        key={log.id}
+                        className="p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-start justify-between gap-3 text-xs"
+                      >
+                        <div className="space-y-0.5 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                              {log.action}
+                            </span>
+                            <span className="font-bold text-slate-900 dark:text-slate-100">
+                              {log.user}
+                            </span>
+                          </div>
+                          <p className="text-slate-700 dark:text-slate-300">
+                            {log.description}
+                          </p>
+                        </div>
+                        <div className="text-[11px] text-slate-400 font-mono shrink-0">
+                          {log.timestamp}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 7: RIWAYAT & AUDIT LOG */}
           {activeTab === 'riwayat' && (
             <div className="space-y-4">
               <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/40 dark:bg-blue-950/20 space-y-2">

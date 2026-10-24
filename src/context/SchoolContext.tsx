@@ -352,6 +352,8 @@ interface SchoolContextType {
 const SchoolContext = createContext<SchoolContextType | undefined>(undefined);
 
 const STORAGE_KEY_STUDENTS = 'buku_induk_students_v1';
+const STORAGE_KEY_DELETED_STUDENTS = 'buku_induk_deleted_student_ids_v1';
+const STORAGE_KEY_ALL_CLEARED = 'buku_induk_all_cleared_v1';
 const STORAGE_KEY_SCHOOL = 'buku_induk_school_profile_v1';
 const STORAGE_KEY_LOGS = 'buku_induk_logs_v1';
 const STORAGE_KEY_ROLE = 'buku_induk_user_role_v1';
@@ -381,18 +383,35 @@ export const sanitizeDiterimaDiKelas = (val?: string): string => {
 };
 
 export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Load students from localStorage or initial with auto-sanitize for diterimaDiKelas
+  // Load students from localStorage or initial with deleted-tracking to prevent resurrection
   const [students, setStudents] = useState<Student[]>(() => {
     try {
+      const isCleared = localStorage.getItem(STORAGE_KEY_ALL_CLEARED) === 'true';
+      if (isCleared) return [];
+
+      const rawDeleted = localStorage.getItem(STORAGE_KEY_DELETED_STUDENTS);
+      const deletedSet = new Set<string>(rawDeleted ? JSON.parse(rawDeleted) : []);
+
       const saved = localStorage.getItem(STORAGE_KEY_STUDENTS);
-      const list: Student[] = saved ? JSON.parse(saved) : initialStudents;
-      const existingIds = new Set((list || []).map((s: Student) => s.id));
-      const missingInitial = initialStudents.filter(s => !existingIds.has(s.id));
-      const combined = [...(list || []), ...missingInitial];
-      return combined.map((s: Student) => ({
-        ...s,
-        diterimaDiKelas: sanitizeDiterimaDiKelas(s.diterimaDiKelas),
-      }));
+      if (saved !== null) {
+        const list: Student[] = JSON.parse(saved);
+        if (Array.isArray(list)) {
+          return list
+            .filter((s: Student) => s && s.id && !deletedSet.has(s.id))
+            .map((s: Student) => ({
+              ...s,
+              diterimaDiKelas: sanitizeDiterimaDiKelas(s.diterimaDiKelas),
+            }));
+        }
+      }
+
+      // Fresh first visit: use initial students, excluding any explicitly marked deleted
+      return initialStudents
+        .filter(s => !deletedSet.has(s.id))
+        .map((s: Student) => ({
+          ...s,
+          diterimaDiKelas: sanitizeDiterimaDiKelas(s.diterimaDiKelas),
+        }));
     } catch {
       return initialStudents.map((s: Student) => ({
         ...s,
@@ -406,12 +425,19 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let isMounted = true;
     (async () => {
       try {
+        const isCleared = localStorage.getItem(STORAGE_KEY_ALL_CLEARED) === 'true';
+        if (isCleared) return;
+
+        const rawDeleted = localStorage.getItem(STORAGE_KEY_DELETED_STUDENTS);
+        const deletedSet = new Set<string>(rawDeleted ? JSON.parse(rawDeleted) : []);
+
         const idbStudents = await idbGet<Student[]>('students');
         if (isMounted && idbStudents && Array.isArray(idbStudents) && idbStudents.length > 0) {
           setStudents((current) => {
             const idbMap = new Map(idbStudents.map(s => [s.id, s]));
             let hasEnriched = false;
             const merged = current.map(s => {
+              if (deletedSet.has(s.id)) return s;
               const fromIdb = idbMap.get(s.id);
               if (fromIdb) {
                 const enrichedPhoto = (!s.fotoUrl && fromIdb.fotoUrl) ? fromIdb.fotoUrl : s.fotoUrl;
@@ -430,13 +456,11 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               return { ...s, diterimaDiKelas: sanitizeDiterimaDiKelas(s.diterimaDiKelas) };
             });
 
-            if (idbStudents.length > current.length) {
-              const currentIds = new Set(current.map(s => s.id));
-              const missingInCurrent = idbStudents
-                .filter(s => !currentIds.has(s.id))
-                .map(s => ({ ...s, diterimaDiKelas: sanitizeDiterimaDiKelas(s.diterimaDiKelas) }));
-              if (missingInCurrent.length > 0) {
-                return [...merged, ...missingInCurrent];
+            // If current was completely empty and not explicitly cleared, hydrate valid non-deleted records
+            if (current.length === 0 && !isCleared) {
+              const validIdb = idbStudents.filter(s => s && s.id && !deletedSet.has(s.id));
+              if (validIdb.length > 0) {
+                return validIdb.map(s => ({ ...s, diterimaDiKelas: sanitizeDiterimaDiKelas(s.diterimaDiKelas) }));
               }
             }
 
@@ -1138,6 +1162,15 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     setStudents(prev => [newStudent, ...prev]);
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_DELETED_STUDENTS);
+      if (raw) {
+        const arr: string[] = JSON.parse(raw);
+        const filtered = arr.filter(delId => delId !== newStudent.id);
+        localStorage.setItem(STORAGE_KEY_DELETED_STUDENTS, JSON.stringify(filtered));
+      }
+      localStorage.removeItem(STORAGE_KEY_ALL_CLEARED);
+    } catch {}
     saveStudentToSql(newStudent).catch((err) => console.warn('SQL background save student error:', err));
     logActivity('TAMBAH', `Menambahkan siswa baru: ${newStudent.namaLengkap} (NIS: ${newStudent.noInduk}, NISN: ${newStudent.nisn})`, newStudent.id);
     return newStudent;
@@ -1290,7 +1323,22 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const deleteStudent = (id: string) => {
     const target = students.find(s => s.id === id);
-    setStudents(prev => prev.filter(s => s.id !== id));
+    const updated = students.filter(s => s.id !== id);
+
+    // Track deleted ID in localStorage to permanently prevent resurrection
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_DELETED_STUDENTS);
+      const arr: string[] = raw ? JSON.parse(raw) : [];
+      if (!arr.includes(id)) {
+        arr.push(id);
+        localStorage.setItem(STORAGE_KEY_DELETED_STUDENTS, JSON.stringify(arr));
+      }
+    } catch (e) {
+      console.warn('Failed to record deleted student ID:', e);
+    }
+
+    setStudents(updated);
+    persistStudentsResiliently(STORAGE_KEY_STUDENTS, updated);
     deleteStudentFromSql(id).catch((err) => console.warn('SQL background delete student error:', err));
     logActivity('HAPUS', `Menghapus data buku induk siswa: ${target?.namaLengkap || id} (NIS: ${target?.noInduk || '-'})`, id);
   };
@@ -1298,13 +1346,41 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const deleteStudentsBulk = (ids: string[]) => {
     if (!ids || ids.length === 0) return;
     const count = ids.length;
-    setStudents(prev => prev.filter(s => !ids.includes(s.id)));
+    const updated = students.filter(s => !ids.includes(s.id));
+
+    // Track all deleted IDs
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_DELETED_STUDENTS);
+      const arr: string[] = raw ? JSON.parse(raw) : [];
+      ids.forEach(id => {
+        if (!arr.includes(id)) arr.push(id);
+      });
+      localStorage.setItem(STORAGE_KEY_DELETED_STUDENTS, JSON.stringify(arr));
+    } catch (e) {
+      console.warn('Failed to record bulk deleted student IDs:', e);
+    }
+
+    setStudents(updated);
+    persistStudentsResiliently(STORAGE_KEY_STUDENTS, updated);
     ids.forEach(id => deleteStudentFromSql(id).catch((err) => console.warn('SQL background delete bulk error:', err)));
     logActivity('HAPUS', `Menghapus ${count} data siswa terpilih dari Buku Induk`);
   };
 
   const deleteAllStudents = () => {
     const count = students.length;
+
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_DELETED_STUDENTS);
+      const arr: string[] = raw ? JSON.parse(raw) : [];
+      students.forEach(s => {
+        if (!arr.includes(s.id)) arr.push(s.id);
+      });
+      localStorage.setItem(STORAGE_KEY_DELETED_STUDENTS, JSON.stringify(arr));
+      localStorage.setItem(STORAGE_KEY_ALL_CLEARED, 'true');
+    } catch (e) {
+      console.warn('Failed to record all-cleared flag:', e);
+    }
+
     setStudents([]);
     safeLocalStorageRemove(STORAGE_KEY_STUDENTS);
     idbDelete('students').catch(() => {});
@@ -2100,6 +2176,8 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setAdminUsers(initialAdminUsers);
     setSecuritySettings(initialSecuritySettings);
     safeLocalStorageRemove(STORAGE_KEY_STUDENTS);
+    safeLocalStorageRemove(STORAGE_KEY_DELETED_STUDENTS);
+    safeLocalStorageRemove(STORAGE_KEY_ALL_CLEARED);
     safeLocalStorageRemove(STORAGE_KEY_SCHOOL);
     safeLocalStorageRemove(STORAGE_KEY_LOGS);
     safeLocalStorageRemove(STORAGE_KEY_PERMISSIONS);
