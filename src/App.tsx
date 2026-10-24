@@ -19,6 +19,7 @@ import { SchoolProfileView } from './components/views/SchoolProfileView';
 import { AdminSettingsView } from './components/views/AdminSettingsView';
 import { PublicVerifyView } from './components/views/PublicVerifyView';
 import { LoginView } from './components/views/LoginView';
+import { PenerimaBantuanView } from './components/views/PenerimaBantuanView';
 
 
 // Modals
@@ -106,7 +107,7 @@ const MainAppContent: React.FC = () => {
   // Modal States
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
   const [studentToEdit, setStudentToEdit] = useState<Student | null>(null);
-  const [studentFormInitialTab, setStudentFormInitialTab] = useState<'pribadi' | 'alamat' | 'ortu' | 'kesehatan' | 'masuk'>('pribadi');
+  const [studentFormInitialTab, setStudentFormInitialTab] = useState<'pribadi' | 'alamat' | 'ortu' | 'kesehatan' | 'masuk' | 'bantuan'>('pribadi');
 
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [studentForDetail, setStudentForDetail] = useState<Student | null>(null);
@@ -165,7 +166,7 @@ const MainAppContent: React.FC = () => {
     } catch (e) {}
   };
 
-  const handleOpenEditModal = (student: Student, initialTab: 'pribadi' | 'alamat' | 'ortu' | 'kesehatan' | 'masuk' = 'pribadi') => {
+  const handleOpenEditModal = (student: Student, initialTab: 'pribadi' | 'alamat' | 'ortu' | 'kesehatan' | 'masuk' | 'bantuan' = 'pribadi') => {
     // Cari data siswa resmi dari Buku Induk (students) agar perubahan status dan rombel sinkron di kedua menu
     const canonicalStudent = students.find(s => s.id === student.id) || student;
     setStudentToEdit(canonicalStudent);
@@ -310,6 +311,15 @@ const MainAppContent: React.FC = () => {
                 onRaport={handleOpenRaport}
                 setActiveTab={setActiveTab}
                 onBack={() => setActiveTab('dashboard')}
+              />
+            )}
+
+            {activeTab === 'penerima-bantuan' && (
+              <PenerimaBantuanView
+                onEditStudent={handleOpenEditModal}
+                onSelectDetail={handleSelectStudentDetail}
+                onBack={() => setActiveTab('dashboard')}
+                setActiveTab={setActiveTab}
               />
             )}
 

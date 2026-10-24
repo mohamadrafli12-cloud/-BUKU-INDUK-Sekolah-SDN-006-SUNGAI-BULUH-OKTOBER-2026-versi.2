@@ -8,6 +8,9 @@ export type Religion = 'Islam' | 'Kristen Protestan' | 'Katolik' | 'Hindu' | 'Bu
 export type StudentStatus = 'Aktif' | 'Lulus' | 'Mutasi Keluar' | 'Drop Out' | 'Meninggal' | 'Belum Masuk SD';
 export type UserRole = 'admin' | 'user' | 'umum';
 
+// Jenis Bantuan Siswa (Kemdikbudristek, Baznas, Desa, Sekolah, Lainnya)
+export type JenisBantuan = 'Penerima PIP' | 'Baznas' | 'Bantuan Sekolah' | 'Bantuan dari desa' | 'Bantuan Lainnya';
+
 export interface ParentInfo {
   nama: string;
   nik: string;
@@ -192,6 +195,14 @@ export interface Student {
   lintang?: string;
   bujur?: string;
   lingkarKepala?: number;
+
+  // Penerima Bantuan (No 6: PIP, Baznas, Bantuan Sekolah, Bantuan dari Desa, Bantuan Lainnya)
+  penerimaBantuan?: string; // Ringkasan jenis bantuan atau 'Tidak'
+  jenisBantuanList?: string[]; // Daftar jenis bantuan yang dipilih (bisa lebih dari satu)
+  bantuanLainnya?: string; // Teks kustom bantuan lainnya yang diisi sendiri
+  tahunBantuan?: string; // Tahun Pelajaran bantuan (contoh: "2026/2027")
+  nominalBantuan?: string; // Nominal bantuan (contoh: "Rp 450.000 / tahun")
+  keteranganBantuan?: string; // Catatan/No KIP/SK Penerima Bantuan
 
   // Modul Lanjutan
   mutasi?: MutationRecord;

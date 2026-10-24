@@ -28,7 +28,8 @@ import {
   Sun,
   Moon,
   RotateCcw,
-  Database
+  Database,
+  HandCoins
 } from 'lucide-react';
 import { useSchool } from '../../context/SchoolContext';
 import { cn } from '../../lib/utils';
@@ -39,6 +40,7 @@ export type ActiveTab =
   | 'dashboard'
   | 'active-students'
   | 'students'
+  | 'penerima-bantuan'
   | 'teachers'
   | 'reports'
   | 'school-profile'
@@ -103,6 +105,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const teacherCount = adminUsers.length;
   const mutatedCount = students.filter(s => s.mutasi || s.status === 'Mutasi Keluar').length;
 
+  const activeTP = schoolProfile?.tahunPelajaranAktif || '2026/2027';
+  const bantuanCount = students.filter(s => {
+    const isRecipient = Boolean(
+      (s.penerimaBantuan && s.penerimaBantuan !== 'Tidak' && s.penerimaBantuan !== 'Bukan Penerima') ||
+      (s.jenisBantuanList && s.jenisBantuanList.length > 0)
+    );
+    if (!isRecipient) return false;
+    const bYear = s.tahunBantuan || activeTP;
+    return bYear === activeTP || s.status === 'Aktif';
+  }).length;
+
   const menuItems: {
     id: ActiveTab;
     label: string;
@@ -135,6 +148,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Users,
       badge: students.length,
       badgeColor: 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200',
+      roles: ['admin', 'user', 'umum'],
+      category: 'MENU UTAMA',
+    },
+    {
+      id: 'penerima-bantuan',
+      label: 'Penerima Bantuan',
+      icon: HandCoins,
+      badge: bantuanCount > 0 ? bantuanCount : undefined,
+      badgeColor: 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200',
       roles: ['admin', 'user', 'umum'],
       category: 'MENU UTAMA',
     },

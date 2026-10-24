@@ -32,7 +32,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  HandCoins
 } from 'lucide-react';
 import { Student } from '../../types';
 import { formatIndonesianDate, cn } from '../../lib/utils';
@@ -51,7 +52,7 @@ interface StudentDetailModalProps {
   student: Student | null;
   isOpen: boolean;
   onClose: () => void;
-  onEdit: (student: Student, initialTab?: 'pribadi' | 'alamat' | 'ortu' | 'kesehatan' | 'masuk') => void;
+  onEdit: (student: Student, initialTab?: 'pribadi' | 'alamat' | 'ortu' | 'kesehatan' | 'masuk' | 'bantuan') => void;
   onPrintBukuInduk: (studentId: string) => void;
   onPrintKartuPelajar: (studentId: string) => void;
   onMutasi: (student: Student) => void;
@@ -809,6 +810,74 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                   <div className="py-1 font-semibold text-slate-800 dark:text-slate-200">{student.noHpSiswa || '-'}</div>
                 </div>
               </div>
+            </div>
+
+            {/* Kartu Status & Kepesertaan Bantuan Siswa (No. 6) */}
+            <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50/70 to-indigo-50/50 dark:from-blue-950/40 dark:to-indigo-950/30 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <h4 className="text-xs font-black text-blue-900 dark:text-blue-300 uppercase tracking-wider flex items-center gap-2">
+                  <HandCoins className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span>Status & Kepesertaan Bantuan Siswa (No. 6)</span>
+                </h4>
+                {currentRole !== 'umum' && (
+                  <button
+                    type="button"
+                    onClick={() => onEdit(student, 'bantuan')}
+                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-300 dark:border-blue-800 hover:bg-blue-50 shadow-2xs transition-colors cursor-pointer self-start sm:self-auto"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Ubah Data Bantuan</span>
+                  </button>
+                )}
+              </div>
+
+              {Boolean((student.penerimaBantuan && student.penerimaBantuan !== 'Tidak' && student.penerimaBantuan !== 'Bukan Penerima') || (student.jenisBantuanList && student.jenisBantuanList.length > 0)) ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs bg-white dark:bg-slate-800/80 p-3.5 rounded-xl border border-blue-100 dark:border-blue-900/40">
+                  <div>
+                    <span className="text-[10.5px] font-bold text-slate-500 block">Program Bantuan:</span>
+                    <span className="font-extrabold text-blue-800 dark:text-blue-300">
+                      {student.jenisBantuanList?.join(', ') || student.penerimaBantuan}
+                    </span>
+                    {student.bantuanLainnya && (
+                      <span className="text-[11px] text-amber-700 dark:text-amber-400 block mt-0.5">
+                        Rincian: {student.bantuanLainnya}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-[10.5px] font-bold text-slate-500 block">Tahun Pelajaran:</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                      TP {student.tahunBantuan || schoolProfile?.tahunPelajaranAktif || '2026/2027'}
+                    </span>
+                    {student.nominalBantuan && (
+                      <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-mono font-bold block mt-0.5">
+                        Nominal: {student.nominalBantuan}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-[10.5px] font-bold text-slate-500 block">Keterangan / No. SK:</span>
+                    <span className="text-slate-700 dark:text-slate-300 font-medium">
+                      {student.keteranganBantuan || '-'}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between text-xs p-3 bg-white/70 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">
+                    Siswa tidak tercatat sebagai penerima bantuan pada tahun pelajaran ini.
+                  </span>
+                  {currentRole !== 'umum' && (
+                    <button
+                      type="button"
+                      onClick={() => onEdit(student, 'bantuan')}
+                      className="text-blue-600 dark:text-blue-400 font-bold hover:underline cursor-pointer"
+                    >
+                      + Tambah Bantuan
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Berkas Lampiran Ijazah & Dokumen Mutasi di Profil */}

@@ -24,9 +24,14 @@ import {
   Plus,
   RotateCcw,
   Clock,
-  Camera
+  Camera,
+  HandCoins,
+  Gift,
+  HelpCircle,
+  Landmark,
+  BadgeCheck
 } from 'lucide-react';
-import { Student, Gender, Religion, StudentStatus, ParentInfo, GuardianInfo, HealthRecord } from '../../types';
+import { Student, Gender, Religion, StudentStatus, ParentInfo, GuardianInfo, HealthRecord, JenisBantuan } from '../../types';
 import { cn } from '../../lib/utils';
 import { useSchool } from '../../context/SchoolContext';
 import { ManageClassesModal, defaultClassList } from './ManageClassesModal';
@@ -43,7 +48,7 @@ interface StudentFormModalProps {
   initialTab?: TabType;
 }
 
-type TabType = 'pribadi' | 'alamat' | 'ortu' | 'kesehatan' | 'masuk';
+type TabType = 'pribadi' | 'alamat' | 'ortu' | 'kesehatan' | 'masuk' | 'bantuan';
 
 // Helper function to safely merge existing student data with standard defaults
 const getInitialStudentData = (
@@ -159,6 +164,14 @@ const getInitialStudentData = (
       status: studentToEdit.status || 'Aktif',
       tahunMasuk: studentToEdit.tahunMasuk || `${currentYear}`,
       fotoUrl: studentToEdit.fotoUrl || '',
+
+      // Penerima Bantuan (No. 6)
+      penerimaBantuan: studentToEdit.penerimaBantuan || '',
+      jenisBantuanList: studentToEdit.jenisBantuanList || (studentToEdit.penerimaBantuan && studentToEdit.penerimaBantuan !== 'Tidak' ? [studentToEdit.penerimaBantuan] : []),
+      bantuanLainnya: studentToEdit.bantuanLainnya || '',
+      tahunBantuan: studentToEdit.tahunBantuan || (schoolProfile as any)?.tahunPelajaranAktif || '2026/2027',
+      nominalBantuan: studentToEdit.nominalBantuan || '',
+      keteranganBantuan: studentToEdit.keteranganBantuan || '',
     };
   }
 
@@ -248,6 +261,14 @@ const getInitialStudentData = (
     status: 'Aktif',
     tahunMasuk: `${currentYear}`,
     fotoUrl: '',
+
+    // Penerima Bantuan (No. 6)
+    penerimaBantuan: '',
+    jenisBantuanList: [],
+    bantuanLainnya: '',
+    tahunBantuan: (schoolProfile as any)?.tahunPelajaranAktif || '2026/2027',
+    nominalBantuan: '',
+    keteranganBantuan: '',
   };
 };
 
@@ -768,6 +789,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
     { id: 'ortu', label: '3. Orang Tua & Wali', subLabel: 'Data Ayah, Ibu, & Wali Murid', icon: Users },
     { id: 'kesehatan', label: '4. Jasmani & Kesehatan', subLabel: 'Gol. Darah, TB/BB, Penyakit', icon: HeartPulse },
     { id: 'masuk', label: '5. Pendidikan & Masuk', subLabel: 'Asal TK, Kelas, Pasfoto 3x4', icon: GraduationCap },
+    { id: 'bantuan', label: '6. Penerima Bantuan', subLabel: 'PIP, Baznas, Desa, Sekolah, Lainnya', icon: HandCoins },
   ];
 
   const studentAge = calculateAge(formData.tanggalLahir);
@@ -2358,6 +2380,282 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             </div>
           )}
 
+          {/* ========================================================================= */}
+          {/* TAB 6: PENERIMA BANTUAN (PIP, BAZNAS, SEKOLAH, DESA, LAINNYA) */}
+          {/* ========================================================================= */}
+          {activeTab === 'bantuan' && (
+            <div className="space-y-5 animate-in fade-in duration-200">
+              {/* Header Box Tab 6 */}
+              <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50/80 to-indigo-50/60 dark:from-blue-950/40 dark:to-indigo-950/30 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                    <HandCoins className="w-5 h-5 text-amber-300" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-blue-950 dark:text-blue-200 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>6. KEPESERTAAN & STATUS PENERIMA BANTUAN</span>
+                    </h4>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                      Pilih dan catat program bantuan yang diterima oleh siswa (PIP, Baznas, Bantuan Sekolah, Bantuan dari Desa, atau Bantuan Lainnya). Data ini disesuaikan dengan Tahun Pelajaran Aktif (<strong className="text-blue-700 dark:text-blue-300">{schoolProfile?.tahunPelajaranAktif || '2026/2027'}</strong>) dan menjadi acuan utama pada menu <strong>Penerima Bantuan</strong> di dashboard samping.
+                    </p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 text-[11px] font-extrabold bg-blue-100 text-[#003399] dark:bg-blue-950 dark:text-blue-300 rounded-full shrink-0">
+                  TP {formData.tahunBantuan || schoolProfile?.tahunPelajaranAktif || '2026/2027'}
+                </span>
+              </div>
+
+              {/* Status Utama: Apakah Menerima Bantuan? */}
+              <div className="bg-slate-50 dark:bg-slate-800/40 rounded-xl p-4 border border-slate-200 dark:border-slate-700/80 space-y-3">
+                <label className="block text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                  Apakah Siswa Ini Menerima Bantuan Pendidikan / Sosial? <span className="text-rose-500">*</span>
+                </label>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Pilihan 1: Bukan Penerima Bantuan */}
+                  <label className={cn(
+                    "flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all",
+                    (!formData.penerimaBantuan || formData.penerimaBantuan === 'Tidak' || formData.penerimaBantuan === 'Bukan Penerima' || (!formData.jenisBantuanList || formData.jenisBantuanList.length === 0))
+                      ? "border-slate-400 bg-white dark:bg-slate-800 shadow-xs ring-1 ring-slate-400/30"
+                      : "border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 hover:bg-white"
+                  )}>
+                    <input
+                      type="radio"
+                      name="statusBantuanRadio"
+                      checked={!formData.penerimaBantuan || formData.penerimaBantuan === 'Tidak' || formData.penerimaBantuan === 'Bukan Penerima' || (!formData.jenisBantuanList || formData.jenisBantuanList.length === 0)}
+                      onChange={() => {
+                        updateField('penerimaBantuan', 'Tidak');
+                        updateField('jenisBantuanList', []);
+                        updateField('bantuanLainnya', '');
+                      }}
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
+                    <div>
+                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        Bukan Penerima Bantuan
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        Siswa tidak menerima bantuan sosial/beasiswa pada tahun pelajaran ini
+                      </div>
+                    </div>
+                  </label>
+
+                  {/* Pilihan 2: Ya, Siswa Penerima Bantuan */}
+                  <label className={cn(
+                    "flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all",
+                    (formData.penerimaBantuan && formData.penerimaBantuan !== 'Tidak' && formData.penerimaBantuan !== 'Bukan Penerima') || (formData.jenisBantuanList && formData.jenisBantuanList.length > 0)
+                      ? "border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 shadow-xs ring-1 ring-blue-500/30"
+                      : "border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 hover:bg-white"
+                  )}>
+                    <input
+                      type="radio"
+                      name="statusBantuanRadio"
+                      checked={Boolean(
+                        (formData.penerimaBantuan && formData.penerimaBantuan !== 'Tidak' && formData.penerimaBantuan !== 'Bukan Penerima') ||
+                        (formData.jenisBantuanList && formData.jenisBantuanList.length > 0)
+                      )}
+                      onChange={() => {
+                        const defaultList = formData.jenisBantuanList && formData.jenisBantuanList.length > 0 
+                          ? formData.jenisBantuanList 
+                          : ['Penerima PIP'];
+                        updateField('jenisBantuanList', defaultList);
+                        updateField('penerimaBantuan', defaultList.join(', '));
+                        if (!formData.tahunBantuan) {
+                          updateField('tahunBantuan', schoolProfile?.tahunPelajaranAktif || '2026/2027');
+                        }
+                      }}
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
+                    <div>
+                      <div className="text-xs font-extrabold text-[#003399] dark:text-blue-300 flex items-center gap-1.5">
+                        <HandCoins className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Ya, Siswa Penerima Bantuan</span>
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        Aktif menerima PIP, Baznas, Bantuan Desa, Bantuan Sekolah, atau Lainnya
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Rincian Pilihan Bantuan jika Menerima Bantuan */}
+              {((formData.penerimaBantuan && formData.penerimaBantuan !== 'Tidak' && formData.penerimaBantuan !== 'Bukan Penerima') || (formData.jenisBantuanList && formData.jenisBantuanList.length > 0)) && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-blue-200 dark:border-blue-900/60 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                        Pilih Program / Sumber Bantuan <span className="text-rose-500">*</span>
+                      </label>
+                      <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400">
+                        {formData.jenisBantuanList?.length || 0} program dipilih
+                      </span>
+                    </div>
+
+                    {/* Cards untuk 5 Pilihan Sesuai Instruksi User */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {[
+                        { 
+                          id: 'Penerima PIP', 
+                          label: 'Penerima PIP', 
+                          sub: 'Program Indonesia Pintar (Kemdikbudristek / Pemegang KIP)', 
+                          color: 'text-blue-700 bg-blue-50 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800',
+                          badge: 'PIP Kemdikbud'
+                        },
+                        { 
+                          id: 'Baznas', 
+                          label: 'Baznas', 
+                          sub: 'Badan Amil Zakat Nasional (Beasiswa & Santunan Pendidikan)', 
+                          color: 'text-emerald-700 bg-emerald-50 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800',
+                          badge: 'Baznas'
+                        },
+                        { 
+                          id: 'Bantuan Sekolah', 
+                          label: 'Bantuan Sekolah', 
+                          sub: 'Subsidi internal sekolah / komite / beasiswa keringanan', 
+                          color: 'text-indigo-700 bg-indigo-50 border-indigo-300 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800',
+                          badge: 'Internal Sekolah'
+                        },
+                        { 
+                          id: 'Bantuan dari desa', 
+                          label: 'Bantuan dari desa', 
+                          sub: 'Bantuan Dana Desa / BLT Desa / Pemerintah Desa Setempat', 
+                          color: 'text-orange-700 bg-orange-50 border-orange-300 dark:bg-orange-950/60 dark:text-orange-300 dark:border-orange-800',
+                          badge: 'Dana Desa'
+                        },
+                        { 
+                          id: 'Bantuan Lainnya', 
+                          label: 'Bantuan Lainnya', 
+                          sub: 'Donatur swasta, CSR perusahaan, yayasan (bisa diisi sendiri)', 
+                          color: 'text-amber-700 bg-amber-50 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800',
+                          badge: 'Kustom / Bebas'
+                        },
+                      ].map((item) => {
+                        const isSelected = Boolean(formData.jenisBantuanList?.includes(item.id));
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => {
+                              const currentList = formData.jenisBantuanList || [];
+                              let nextList: string[];
+                              if (isSelected) {
+                                nextList = currentList.filter(x => x !== item.id);
+                              } else {
+                                nextList = [...currentList, item.id];
+                              }
+                              updateField('jenisBantuanList', nextList);
+                              updateField('penerimaBantuan', nextList.length > 0 ? nextList.join(', ') : 'Tidak');
+                            }}
+                            className={cn(
+                              "p-3 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3 select-none",
+                              isSelected 
+                                ? "border-blue-500 bg-blue-50/80 dark:bg-blue-950/60 shadow-xs ring-1 ring-blue-500/20" 
+                                : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-slate-50/50 dark:bg-slate-800/40"
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {}}
+                              className="mt-0.5 w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-xs font-extrabold text-slate-800 dark:text-slate-100">
+                                  {item.label}
+                                </span>
+                                <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", item.color)}>
+                                  {item.badge}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                {item.sub}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Jika Bantuan Lainnya dipilih: Tampilkan Input Bebas Diisi Sendiri */}
+                    {formData.jenisBantuanList?.includes('Bantuan Lainnya') && (
+                      <div className="mt-3 p-3.5 rounded-xl border-2 border-amber-300 dark:border-amber-700 bg-amber-50/80 dark:bg-amber-950/40 space-y-1.5 animate-in fade-in duration-150">
+                        <label className="block text-xs font-extrabold text-amber-900 dark:text-amber-200">
+                          Nama / Jenis Bantuan Lainnya (Bisa Diisi Sendiri) <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.bantuanLainnya || ''}
+                          onChange={(e) => updateField('bantuanLainnya', e.target.value)}
+                          placeholder="Contoh: Beasiswa CSR PT RAPP, Beasiswa Alumni SDN 006, Donatur Yayasan..."
+                          className="w-full px-3 py-2 text-xs font-bold rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                        />
+                        <p className="text-[10.5px] text-amber-800 dark:text-amber-300">
+                          Nama bantuan kustom ini akan menjadi rincian resmi pada tabel data dan laporan statistik.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Form Detail Tambahan: Tahun Pelajaran, Nominal, No SK / Keterangan */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-xs">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        Tahun Pelajaran Bantuan <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        value={formData.tahunBantuan || schoolProfile?.tahunPelajaranAktif || '2026/2027'}
+                        onChange={(e) => updateField('tahunBantuan', e.target.value)}
+                        className="w-full px-3 py-2 text-xs font-bold rounded-lg border-2 border-blue-500 bg-white dark:bg-slate-800 text-blue-900 dark:text-blue-300 cursor-pointer"
+                      >
+                        {(schoolProfile?.daftarTahunPelajaran || ['2023/2024', '2024/2025', '2025/2026', '2026/2027', '2027/2028']).map(tp => (
+                          <option key={tp} value={tp}>
+                            TP {tp} {tp === (schoolProfile?.tahunPelajaranAktif || '2026/2027') ? '(Aktif)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        Acuan Tahun Pelajaran di dashboard samping
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        Nominal / Bentuk Bantuan (Opsional)
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.nominalBantuan || ''}
+                        onChange={(e) => updateField('nominalBantuan', e.target.value)}
+                        placeholder="Contoh: Rp 450.000 / tahun"
+                        className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                      />
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        Jumlah uang tunai atau bentuk fasilitas
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        Keterangan / No. KIP / SK Bantuan (Opsional)
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.keteranganBantuan || ''}
+                        onChange={(e) => updateField('keteranganBantuan', e.target.value)}
+                        placeholder="Contoh: SK Kemenkeu No. 04/2026"
+                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                      />
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        Catatan nomor SK, kartu, atau rekomendasi
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Action Footer Navigation & Save Buttons */}
           <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
             <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -2403,7 +2701,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             </div>
 
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              {activeTab !== 'masuk' && (
+              {activeTab !== tabs[tabs.length - 1].id && (
                 <button
                   type="button"
                   onClick={() => {
