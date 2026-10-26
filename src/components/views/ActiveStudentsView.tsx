@@ -38,7 +38,8 @@ import {
   Lock,
   Unlock,
   ShieldCheck,
-  Undo2
+  Undo2,
+  HandCoins
 } from 'lucide-react';
 import { useSchool, sanitizeDiterimaDiKelas } from '../../context/SchoolContext';
 import { Student, Gender, MutationRecord, StudentStatus } from '../../types';
@@ -73,7 +74,7 @@ export type ActiveStudentsSubTab =
 
 interface ActiveStudentsViewProps {
   onOpenAddModal: () => void;
-  onEditStudent: (student: Student, initialTab?: 'pribadi' | 'alamat' | 'ortu' | 'kesehatan' | 'masuk') => void;
+  onEditStudent: (student: Student, initialTab?: 'pribadi' | 'alamat' | 'ortu' | 'kesehatan' | 'masuk' | 'bantuan') => void;
   onSelectDetail: (studentId: string) => void;
   onPrintBukuInduk: (studentId: string) => void;
   onPrintKartuPelajar: (studentId: string) => void;
@@ -169,6 +170,55 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(30);
+
+  // Filter khusus status penerima bantuan ('ALL' | 'BANTUAN' | 'NON_BANTUAN')
+  const [filterBantuan, setFilterBantuan] = useState<'ALL' | 'BANTUAN' | 'NON_BANTUAN'>('ALL');
+
+  // Helper: Cek apakah siswa pernah mendapatkan bantuan & kumpulkan riwayatnya
+  const getStudentBantuanInfo = (s: Student) => {
+    const records = s.riwayatBantuan || [];
+    const list = s.jenisBantuanList || [];
+    const legacyStr = s.penerimaBantuan && s.penerimaBantuan !== 'Tidak' && s.penerimaBantuan !== 'Bukan Penerima' && s.penerimaBantuan.trim() !== ''
+      ? s.penerimaBantuan
+      : null;
+
+    const hasBantuan = records.length > 0 || list.length > 0 || Boolean(legacyStr);
+    if (!hasBantuan) return null;
+
+    const programTypes = new Set<string>();
+    records.forEach(r => {
+      if (r.jenis) {
+        if (r.jenis === 'Bantuan Lainnya' && r.bantuanLainnya) {
+          programTypes.add(r.bantuanLainnya);
+        } else {
+          programTypes.add(r.jenis);
+        }
+      }
+    });
+    list.forEach(item => {
+      if (item === 'Bantuan Lainnya' && s.bantuanLainnya) {
+        programTypes.add(s.bantuanLainnya);
+      } else {
+        programTypes.add(item);
+      }
+    });
+    if (legacyStr && programTypes.size === 0) {
+      programTypes.add(s.bantuanLainnya || legacyStr);
+    }
+
+    const programList = Array.from(programTypes);
+    const totalRecords = Math.max(records.length, programList.length, 1);
+
+    return {
+      hasBantuan: true,
+      totalRecords,
+      programs: programList.length > 0 ? programList : ['Penerima Bantuan'],
+      primaryProgram: programList[0] || 'Penerima Bantuan',
+      latestTahap: records[0]?.tahap || s.tahapBantuan,
+      latestNominal: records[0]?.nominal || s.nominalBantuan,
+      records,
+    };
+  };
 
   // Active School Year & TP List
   const activeTP = schoolProfile.tahunPelajaranAktif || '2026/2027';
@@ -405,14 +455,25 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
     return counts;
   }, [activeStudents]);
 
-  // Filtered students for Daftar tab with support for Tingkat (1-6), Rombel spesifik, Status, Gender, dan Pencarian
+  // Jumlah siswa aktif yang pernah mendapatkan bantuan
+  const countPernahBantuan = useMemo(() => {
+    return displayScopeStudents.filter(s => Boolean(getStudentBantuanInfo(s))).length;
+  }, [displayScopeStudents]);
+
+  // Filtered students for Daftar tab with support for Tingkat (1-6), Rombel spesifik, Status, Gender, Penerima Bantuan, dan Pencarian
   const filteredActiveStudents = useMemo(() => {
     return displayScopeStudents.filter(s => {
+      const bInfo = getStudentBantuanInfo(s);
+
       const matchSearch = searchQuery.trim() === '' || 
         s.namaLengkap.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.noInduk.includes(searchQuery) ||
         s.nisn.includes(searchQuery) ||
-        (s.nik && s.nik.includes(searchQuery));
+        (s.nik && s.nik.includes(searchQuery)) ||
+        (bInfo && (
+          bInfo.programs.some(p => p.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          (searchQuery.toLowerCase().includes('bantuan') || searchQuery.toLowerCase().includes('pip'))
+        ));
 
       // Match Filter Tingkat Kelas (1 s/d 6 atau Belum Masuk SD)
       let matchTingkat = true;
@@ -434,7 +495,14 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
       const matchGender = selectedGender === 'ALL' || s.jenisKelamin === selectedGender;
       const matchStatus = selectedStatus === 'ALL' || s.status === selectedStatus;
 
-      return matchSearch && matchTingkat && matchRombel && matchGender && matchStatus;
+      // Match Filter Penerima Bantuan
+      const matchBantuan = filterBantuan === 'ALL'
+        ? true
+        : filterBantuan === 'BANTUAN'
+        ? Boolean(bInfo)
+        : !bInfo;
+
+      return matchSearch && matchTingkat && matchRombel && matchGender && matchStatus && matchBantuan;
     }).sort((a, b) => {
       let comparison = 0;
       if (sortBy === 'nama') {
@@ -458,7 +526,7 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
       }
       return sortOrder === 'asc' ? comparison : -comparison;
     });
-  }, [displayScopeStudents, searchQuery, selectedTingkat, selectedRombel, selectedGender, selectedStatus, sortBy, sortOrder]);
+  }, [displayScopeStudents, searchQuery, selectedTingkat, selectedRombel, selectedGender, selectedStatus, filterBantuan, sortBy, sortOrder]);
 
   // Pagination for Daftar tab
   const totalPages = Math.ceil(filteredActiveStudents.length / itemsPerPage) || 1;
@@ -1335,6 +1403,43 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
                 <span>Status: Aktif ({filteredActiveStudents.length})</span>
               </div>
 
+              {/* Filter Khusus Penerima Bantuan */}
+              <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterBantuan('ALL');
+                    setCurrentPage(1);
+                  }}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg font-bold transition-colors cursor-pointer",
+                    filterBantuan === 'ALL'
+                      ? "bg-[#003399] text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-700"
+                  )}
+                  title="Tampilkan semua siswa"
+                >
+                  Semua
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterBantuan(filterBantuan === 'BANTUAN' ? 'ALL' : 'BANTUAN');
+                    setCurrentPage(1);
+                  }}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5",
+                    filterBantuan === 'BANTUAN'
+                      ? "bg-amber-500 text-slate-950 font-black shadow-xs ring-2 ring-amber-300"
+                      : "text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                  )}
+                  title="Saring khusus siswa aktif yang pernah mendapatkan bantuan"
+                >
+                  <HandCoins className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span>Pernah Bantuan ({countPernahBantuan})</span>
+                </button>
+              </div>
+
               {/* Filter Gender */}
               <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
                 {(['ALL', 'L', 'P'] as const).map(g => (
@@ -1886,7 +1991,7 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
                               <div 
                                 onClick={() => onSelectDetail(s.id)}
                                 className={cn(
-                                  "w-9 h-9 rounded-xl font-bold flex items-center justify-center shrink-0 overflow-hidden border cursor-pointer shadow-2xs",
+                                  "w-9 h-9 rounded-xl font-bold flex items-center justify-center shrink-0 overflow-hidden border cursor-pointer shadow-2xs relative",
                                   isBelumMasuk
                                     ? "bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800"
                                     : "bg-blue-100 dark:bg-blue-950/80 text-[#003399] dark:text-blue-300 border-blue-200 dark:border-blue-900"
@@ -1898,20 +2003,54 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
                                 ) : (
                                   s.namaLengkap.charAt(0)
                                 )}
+                                {getStudentBantuanInfo(s) && (
+                                  <span 
+                                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center shadow-xs border-2 border-white dark:border-slate-900 z-10"
+                                    title="Siswa pernah menerima bantuan pendidikan"
+                                  >
+                                    <HandCoins className="w-2.5 h-2.5 text-slate-950" />
+                                  </span>
+                                )}
                               </div>
                               <div>
-                                <button
-                                  type="button"
-                                  onClick={() => onSelectDetail(s.id)}
-                                  className={cn(
-                                    "font-bold text-left cursor-pointer transition-colors",
-                                    isBelumMasuk
-                                      ? "text-amber-950 dark:text-amber-100 hover:text-amber-600"
-                                      : "text-slate-900 dark:text-slate-100 hover:text-[#003399] dark:hover:text-blue-400"
-                                  )}
-                                >
-                                  {s.namaLengkap}
-                                </button>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => onSelectDetail(s.id)}
+                                    className={cn(
+                                      "font-bold text-left cursor-pointer transition-colors",
+                                      isBelumMasuk
+                                        ? "text-amber-950 dark:text-amber-100 hover:text-amber-600"
+                                        : "text-slate-900 dark:text-slate-100 hover:text-[#003399] dark:hover:text-blue-400"
+                                    )}
+                                  >
+                                    {s.namaLengkap}
+                                  </button>
+
+                                  {/* Tanda Khusus Siswa Pernah Menerima Bantuan */}
+                                  {(() => {
+                                    const bInfo = getStudentBantuanInfo(s);
+                                    if (!bInfo) return null;
+                                    return (
+                                      <span
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onSelectDetail(s.id);
+                                        }}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-gradient-to-r from-amber-100 via-amber-200/70 to-yellow-100 text-amber-950 dark:from-amber-950 dark:via-amber-900/60 dark:to-yellow-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700 shadow-2xs hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                                        title={`Siswa pernah menerima bantuan pendidikan:\n• Program: ${bInfo.programs.join(', ')}${bInfo.latestTahap ? `\n• Tahap/Termin: ${bInfo.latestTahap}` : ''}${bInfo.latestNominal ? `\n• Nominal: ${bInfo.latestNominal}` : ''}\n(Klik untuk lihat profil dan riwayat bantuan)`}
+                                      >
+                                        <HandCoins className="w-3 h-3 text-amber-700 dark:text-amber-400 shrink-0" />
+                                        <span>Penerima Bantuan</span>
+                                        {bInfo.totalRecords > 1 && (
+                                          <span className="px-1 py-0.2 rounded-full bg-amber-500 text-slate-950 text-[9px] font-black leading-none">
+                                            {bInfo.totalRecords}x
+                                          </span>
+                                        )}
+                                      </span>
+                                    );
+                                  })()}
+                                </div>
                                 <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
                                   <span>{s.tempatLahir}, {formatIndonesianDate(s.tanggalLahir)}</span>
                                   <span>•</span>
@@ -2067,6 +2206,16 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
                               >
                                 <Eye className="w-3.5 h-3.5" />
                               </button>
+                              {getStudentBantuanInfo(s) && currentRole !== 'umum' && (
+                                <button
+                                  type="button"
+                                  onClick={() => onEditStudent(s, 'bantuan')}
+                                  className="p-1.5 text-amber-600 hover:text-white hover:bg-amber-600 rounded-lg transition-colors cursor-pointer"
+                                  title="Lihat & Kelola Riwayat Bantuan Siswa (Tab 6)"
+                                >
+                                  <HandCoins className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                               {currentRole !== 'umum' && (
                                 <button
                                   type="button"

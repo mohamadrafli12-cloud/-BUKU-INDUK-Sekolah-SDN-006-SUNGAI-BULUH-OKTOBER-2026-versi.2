@@ -22,7 +22,8 @@ import {
   RefreshCw,
   Award,
   ArrowLeft,
-  AlertTriangle
+  AlertTriangle,
+  HandCoins
 } from 'lucide-react';
 import { useSchool } from '../../context/SchoolContext';
 import { Student, Gender, StudentStatus, Religion } from '../../types';
@@ -99,6 +100,52 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
 
   // Import Excel modal state
   const [isImportExcelModalOpen, setIsImportExcelModalOpen] = useState(false);
+
+  // Helper: Cek apakah siswa pernah mendapatkan bantuan & kumpulkan riwayatnya
+  const getStudentBantuanInfo = (s: Student) => {
+    const records = s.riwayatBantuan || [];
+    const list = s.jenisBantuanList || [];
+    const legacyStr = s.penerimaBantuan && s.penerimaBantuan !== 'Tidak' && s.penerimaBantuan !== 'Bukan Penerima' && s.penerimaBantuan.trim() !== ''
+      ? s.penerimaBantuan
+      : null;
+
+    const hasBantuan = records.length > 0 || list.length > 0 || Boolean(legacyStr);
+    if (!hasBantuan) return null;
+
+    const programTypes = new Set<string>();
+    records.forEach(r => {
+      if (r.jenis) {
+        if (r.jenis === 'Bantuan Lainnya' && r.bantuanLainnya) {
+          programTypes.add(r.bantuanLainnya);
+        } else {
+          programTypes.add(r.jenis);
+        }
+      }
+    });
+    list.forEach(item => {
+      if (item === 'Bantuan Lainnya' && s.bantuanLainnya) {
+        programTypes.add(s.bantuanLainnya);
+      } else {
+        programTypes.add(item);
+      }
+    });
+    if (legacyStr && programTypes.size === 0) {
+      programTypes.add(s.bantuanLainnya || legacyStr);
+    }
+
+    const programList = Array.from(programTypes);
+    const totalRecords = Math.max(records.length, programList.length, 1);
+
+    return {
+      hasBantuan: true,
+      totalRecords,
+      programs: programList.length > 0 ? programList : ['Penerima Bantuan'],
+      primaryProgram: programList[0] || 'Penerima Bantuan',
+      latestTahap: records[0]?.tahap || s.tahapBantuan,
+      latestNominal: records[0]?.nominal || s.nominalBantuan,
+      records,
+    };
+  };
 
   // Import file ref
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -589,11 +636,19 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
 
                       {/* Photo Thumbnail */}
                       <td className="p-3 text-center">
-                        <div className="w-9 h-9 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 mx-auto flex items-center justify-center font-bold text-blue-700">
+                        <div className="w-9 h-9 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 mx-auto flex items-center justify-center font-bold text-blue-700 relative">
                           {student.fotoUrl ? (
                             <img src={student.fotoUrl} alt={student.namaLengkap} className="w-full h-full object-cover" />
                           ) : (
                             student.namaLengkap.charAt(0)
+                          )}
+                          {getStudentBantuanInfo(student) && (
+                            <span 
+                              className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center shadow-xs border-2 border-white dark:border-slate-900 z-10"
+                              title="Siswa pernah menerima bantuan pendidikan"
+                            >
+                              <HandCoins className="w-2.5 h-2.5 text-slate-950" />
+                            </span>
                           )}
                         </div>
                       </td>
@@ -606,11 +661,35 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
 
                       {/* Nama Lengkap & Tgl Lahir */}
                       <td className="p-3">
-                        <div 
-                          onClick={() => onSelectDetail(student.id)}
-                          className="font-extrabold text-slate-900 dark:text-slate-100 hover:text-blue-600 cursor-pointer"
-                        >
-                          {student.namaLengkap}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <div 
+                            onClick={() => onSelectDetail(student.id)}
+                            className="font-extrabold text-slate-900 dark:text-slate-100 hover:text-blue-600 cursor-pointer"
+                          >
+                            {student.namaLengkap}
+                          </div>
+                          {(() => {
+                            const bInfo = getStudentBantuanInfo(student);
+                            if (!bInfo) return null;
+                            return (
+                              <span
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onSelectDetail(student.id);
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-gradient-to-r from-amber-100 via-amber-200/70 to-yellow-100 text-amber-950 dark:from-amber-950 dark:via-amber-900/60 dark:to-yellow-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700 shadow-2xs hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                                title={`Siswa pernah menerima bantuan pendidikan:\n• Program: ${bInfo.programs.join(', ')}${bInfo.latestTahap ? `\n• Tahap/Termin: ${bInfo.latestTahap}` : ''}${bInfo.latestNominal ? `\n• Nominal: ${bInfo.latestNominal}` : ''}\n(Klik untuk lihat profil dan riwayat bantuan)`}
+                              >
+                                <HandCoins className="w-3 h-3 text-amber-700 dark:text-amber-400 shrink-0" />
+                                <span>Penerima Bantuan</span>
+                                {bInfo.totalRecords > 1 && (
+                                  <span className="px-1 py-0.2 rounded-full bg-amber-500 text-slate-950 text-[9px] font-black leading-none">
+                                    {bInfo.totalRecords}x
+                                  </span>
+                                )}
+                              </span>
+                            );
+                          })()}
                         </div>
                         <div className="text-[11px] text-slate-500">
                           {student.tempatLahir}, {formatIndonesianDate(student.tanggalLahir)}
