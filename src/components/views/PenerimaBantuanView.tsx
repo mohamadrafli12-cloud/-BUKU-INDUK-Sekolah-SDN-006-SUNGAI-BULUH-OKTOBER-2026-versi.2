@@ -24,13 +24,17 @@ import {
   ShieldCheck, 
   Percent, 
   ChevronRight,
-  TrendingUp,
   HelpCircle,
-  Layers
+  Layers,
+  History,
+  Clock,
+  Trash2,
+  AlertCircle,
+  Check
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useSchool } from '../../context/SchoolContext';
-import { Student, Gender, JenisBantuan } from '../../types';
+import { Student, Gender, JenisBantuan, BantuanRecord } from '../../types';
 import { cn, formatIndonesianDate } from '../../lib/utils';
 import { KopSuratHeader } from '../layout/KopSuratHeader';
 import { RingkasanStatistikBantuan } from '../analytics/RingkasanStatistikBantuan';
@@ -62,42 +66,88 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // Modals state
-  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [isAddBantuanModalOpen, setIsAddBantuanModalOpen] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
-  // Quick Add Form state
-  const [quickStudentId, setQuickStudentId] = useState<string>('');
-  const [quickJenisList, setQuickJenisList] = useState<string[]>(['Penerima PIP']);
-  const [quickBantuanLainnya, setQuickBantuanLainnya] = useState<string>('');
-  const [quickTahunBantuan, setQuickTahunBantuan] = useState<string>(activeTP);
-  const [quickTahap, setQuickTahap] = useState<string>('Tahap 1');
-  const [quickTanggalMenerima, setQuickTanggalMenerima] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [quickNominal, setQuickNominal] = useState<string>('Rp 450.000 / tahun');
-  const [quickKeterangan, setQuickKeterangan] = useState<string>('');
+  // Selected Student for "Tambahkan Bantuan" & Riwayat
+  const [selectedStudentForBantuanId, setSelectedStudentForBantuanId] = useState<string>('');
+  const [studentSearchInModal, setStudentSearchInModal] = useState<string>('');
+  const [modalNotification, setModalNotification] = useState<string | null>(null);
+
+  // Form state for adding new assistance
+  const [formJenis, setFormJenis] = useState<string>('Penerima PIP');
+  const [formBantuanLainnya, setFormBantuanLainnya] = useState<string>('');
+  const [formTahunPelajaran, setFormTahunPelajaran] = useState<string>(activeTP);
+  const [formTahap, setFormTahap] = useState<string>('Tahap 1');
+  const [formTanggalMenerima, setFormTanggalMenerima] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [formNominal, setFormNominal] = useState<string>('Rp 450.000 / tahun');
+  const [formStatusPencairan, setFormStatusPencairan] = useState<'Sudah Cair' | 'Dalam Proses' | 'Belum Cair'>('Sudah Cair');
+  const [formKeterangan, setFormKeterangan] = useState<string>('');
+
+  // Helper to extract student's aid types array
+  const getStudentBantuanTypes = (s: Student, tp?: string): string[] => {
+    const typesSet = new Set<string>();
+    if (s.riwayatBantuan && Array.isArray(s.riwayatBantuan)) {
+      s.riwayatBantuan.forEach(r => {
+        if (!tp || tp === 'ALL' || r.tahunPelajaran === tp) {
+          if (r.jenis) typesSet.add(r.jenis);
+        }
+      });
+    }
+    if (s.jenisBantuanList && s.jenisBantuanList.length > 0) {
+      s.jenisBantuanList.forEach(t => typesSet.add(t));
+    } else if (s.penerimaBantuan && s.penerimaBantuan !== 'Tidak' && s.penerimaBantuan !== 'Bukan Penerima') {
+      s.penerimaBantuan.split(',').map(x => x.trim()).filter(Boolean).forEach(t => typesSet.add(t));
+    }
+    return Array.from(typesSet);
+  };
 
   // Helper function to check if student is a recipient
   const isBantuanRecipient = (s: Student): boolean => {
+    const hasHistory = Boolean(s.riwayatBantuan && s.riwayatBantuan.length > 0);
     const hasExplicitBantuan = Boolean(
       (s.penerimaBantuan && s.penerimaBantuan !== 'Tidak' && s.penerimaBantuan !== 'Bukan Penerima' && s.penerimaBantuan.trim() !== '') ||
       (s.jenisBantuanList && s.jenisBantuanList.length > 0)
     );
-    return hasExplicitBantuan;
-  };
-
-  // Helper to extract student's aid types array
-  const getStudentBantuanTypes = (s: Student): string[] => {
-    if (s.jenisBantuanList && s.jenisBantuanList.length > 0) {
-      return s.jenisBantuanList;
-    }
-    if (s.penerimaBantuan && s.penerimaBantuan !== 'Tidak' && s.penerimaBantuan !== 'Bukan Penerima') {
-      return s.penerimaBantuan.split(',').map(x => x.trim()).filter(Boolean);
-    }
-    return [];
+    return hasHistory || hasExplicitBantuan;
   };
 
   // Helper to get academic year of assistance
   const getBantuanYear = (s: Student): string => {
     return s.tahunBantuan || (s.tahunPelajaranKelasSekarang || activeTP);
+  };
+
+  // Helper to get all assistance records of a student for a specific academic year (or ALL)
+  const getStudentBantuanRecords = (s: Student, tp: string): BantuanRecord[] => {
+    const records: BantuanRecord[] = [];
+    if (s.riwayatBantuan && Array.isArray(s.riwayatBantuan)) {
+      s.riwayatBantuan.forEach(r => {
+        if (tp === 'ALL' || r.tahunPelajaran === tp) {
+          records.push(r);
+        }
+      });
+    }
+    // If student has legacy top-level bantuan and no matching riwayatBantuan for this TP, synthesize it
+    if (records.length === 0 && isBantuanRecipient(s)) {
+      const bYear = getBantuanYear(s);
+      if (tp === 'ALL' || bYear === tp) {
+        const types = getStudentBantuanTypes(s);
+        types.forEach((t, i) => {
+          records.push({
+            id: `legacy-${s.id}-${i}`,
+            jenis: t,
+            bantuanLainnya: t === 'Bantuan Lainnya' ? s.bantuanLainnya : undefined,
+            tahunPelajaran: bYear,
+            tahap: s.tahapBantuan || 'Tahap 1',
+            tanggalMenerima: s.tanggalMenerimaBantuan,
+            nominal: s.nominalBantuan || 'Rp 450.000 / tahun',
+            keterangan: s.keteranganBantuan,
+            statusPencairan: s.tanggalMenerimaBantuan ? 'Sudah Cair' : 'Dalam Proses',
+          });
+        });
+      }
+    }
+    return records;
   };
 
   // Active students scope (students currently active in school)
@@ -109,8 +159,10 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
   const recipientsInSelectedTP = useMemo(() => {
     return students.filter(s => {
       if (!isBantuanRecipient(s)) return false;
+      const records = getStudentBantuanRecords(s, selectedTP);
+      if (selectedTP === 'ALL') return records.length > 0 || isBantuanRecipient(s);
+      if (records.length > 0) return true;
       const bYear = getBantuanYear(s);
-      if (selectedTP === 'ALL') return true;
       return bYear === selectedTP || (s.status === 'Aktif' && bYear === activeTP);
     });
   }, [students, selectedTP, activeTP]);
@@ -119,17 +171,25 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
   const availableTahapOptions = useMemo(() => {
     const tahapSet = new Set<string>();
     recipientsInSelectedTP.forEach(s => {
+      const records = getStudentBantuanRecords(s, selectedTP);
+      records.forEach(r => {
+        if (r.tahap && r.tahap.trim()) tahapSet.add(r.tahap.trim());
+      });
       const t = s.tahapBantuan ? s.tahapBantuan.trim() : 'Tahap 1';
       if (t) tahapSet.add(t);
     });
     // Ensure common stages are available if user wants to filter
     ['Tahap 1', 'Tahap 2', 'Tahap 3', 'Tahap 4', 'Semester Ganjil', 'Semester Genap'].forEach(def => {
-      if (recipientsInSelectedTP.some(s => (s.tahapBantuan || 'Tahap 1').toLowerCase() === def.toLowerCase())) {
+      if (recipientsInSelectedTP.some(s => {
+        const records = getStudentBantuanRecords(s, selectedTP);
+        return records.some(r => (r.tahap || '').toLowerCase() === def.toLowerCase()) ||
+          (s.tahapBantuan || 'Tahap 1').toLowerCase() === def.toLowerCase();
+      })) {
         tahapSet.add(def);
       }
     });
     return Array.from(tahapSet);
-  }, [recipientsInSelectedTP]);
+  }, [recipientsInSelectedTP, selectedTP]);
 
   // Filtered & Sorted Recipients for Table Display
   const filteredRecipients = useMemo(() => {
@@ -212,12 +272,14 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
     const tahapCounts: Record<string, number> = {};
 
     recipientsInSelectedTP.forEach(s => {
-      const types = getStudentBantuanTypes(s);
+      const records = getStudentBantuanRecords(s, selectedTP);
+      const types = getStudentBantuanTypes(s, selectedTP);
+
       if (types.includes('Penerima PIP')) countPIP++;
       if (types.includes('Baznas')) countBaznas++;
       if (types.includes('Bantuan Sekolah')) countSekolah++;
       if (types.includes('Bantuan dari desa')) countDesa++;
-      if (types.includes('Bantuan Lainnya') || s.bantuanLainnya) countLainnya++;
+      if (types.includes('Bantuan Lainnya') || s.bantuanLainnya || records.some(r => r.jenis === 'Bantuan Lainnya')) countLainnya++;
 
       if (s.jenisKelamin === 'L') totalL++;
       else if (s.jenisKelamin === 'P') totalP++;
@@ -230,8 +292,15 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
         else kelasCounts[cleanK].p++;
       }
 
-      const t = s.tahapBantuan ? s.tahapBantuan.trim() : 'Tahap 1';
-      tahapCounts[t] = (tahapCounts[t] || 0) + 1;
+      if (records.length > 0) {
+        records.forEach(r => {
+          const t = r.tahap ? r.tahap.trim() : 'Tahap 1';
+          tahapCounts[t] = (tahapCounts[t] || 0) + 1;
+        });
+      } else {
+        const t = s.tahapBantuan ? s.tahapBantuan.trim() : 'Tahap 1';
+        tahapCounts[t] = (tahapCounts[t] || 0) + 1;
+      }
     });
 
     return {
@@ -250,61 +319,142 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
       kelasCounts,
       tahapCounts,
     };
-  }, [recipientsInSelectedTP, activeStudentsInSchool]);
+  }, [recipientsInSelectedTP, activeStudentsInSchool, selectedTP]);
 
-  // Handler: Submit Quick Add Assistance
-  const handleSaveQuickAdd = (e: React.FormEvent) => {
+  // Handler: Buka Menu "Tambahkan Bantuan" & Riwayat
+  const handleOpenAddBantuan = (studentId?: string | null) => {
+    if (studentId) {
+      setSelectedStudentForBantuanId(studentId);
+    } else if (!selectedStudentForBantuanId && activeStudentsInSchool.length > 0) {
+      setSelectedStudentForBantuanId(activeStudentsInSchool[0].id);
+    }
+    setStudentSearchInModal('');
+    setFormJenis('Penerima PIP');
+    setFormBantuanLainnya('');
+    setFormTahunPelajaran(activeTP);
+    setFormTahap('Tahap 1');
+    setFormTanggalMenerima(new Date().toISOString().split('T')[0]);
+    setFormNominal('Rp 450.000 / tahun');
+    setFormStatusPencairan('Sudah Cair');
+    setFormKeterangan('');
+    setModalNotification(null);
+    setIsAddBantuanModalOpen(true);
+  };
+
+  // Handler: Simpan Bantuan Baru ke Riwayat Siswa
+  const handleSaveNewBantuan = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quickStudentId) {
+    if (!selectedStudentForBantuanId) {
       alert('Pilih siswa aktif terlebih dahulu.');
       return;
     }
-    if (quickJenisList.length === 0) {
-      alert('Pilih minimal satu jenis bantuan.');
+    const targetStudent = students.find(s => s.id === selectedStudentForBantuanId);
+    if (!targetStudent) return;
+
+    const newRecord: BantuanRecord = {
+      id: `btn-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      jenis: formJenis,
+      bantuanLainnya: formJenis === 'Bantuan Lainnya' ? formBantuanLainnya : undefined,
+      tahunPelajaran: formTahunPelajaran || activeTP,
+      tahap: formTahap || 'Tahap 1',
+      tanggalMenerima: formTanggalMenerima,
+      nominal: formNominal || 'Rp 450.000 / tahun',
+      keterangan: formKeterangan,
+      statusPencairan: formStatusPencairan,
+      dibuatPada: new Date().toISOString(),
+    };
+
+    const existingHistory = getStudentBantuanRecords(targetStudent, 'ALL');
+    const updatedHistory = [newRecord, ...existingHistory];
+    const uniqueTypes = Array.from(new Set(updatedHistory.map(r => r.jenis)));
+
+    updateStudent(selectedStudentForBantuanId, {
+      riwayatBantuan: updatedHistory,
+      penerimaBantuan: uniqueTypes.join(', '),
+      jenisBantuanList: uniqueTypes,
+      bantuanLainnya: formJenis === 'Bantuan Lainnya' ? formBantuanLainnya : targetStudent.bantuanLainnya,
+      tahunBantuan: formTahunPelajaran || activeTP,
+      tahapBantuan: formTahap,
+      tanggalMenerimaBantuan: formTanggalMenerima,
+      nominalBantuan: formNominal,
+      keteranganBantuan: formKeterangan || targetStudent.keteranganBantuan,
+    });
+
+    logActivity('EDIT', `Menambahkan riwayat bantuan ${formJenis} (${formTahap}) untuk ${targetStudent.namaLengkap} di TP ${formTahunPelajaran}`);
+    setModalNotification(`Bantuan ${formJenis} (${formTahap}) berhasil ditambahkan ke riwayat ${targetStudent.namaLengkap}!`);
+    setTimeout(() => {
+      setModalNotification(null);
+    }, 4000);
+
+    // Reset keterangan agar siap jika ingin menambah bantuan berikutnya
+    setFormKeterangan('');
+  };
+
+  // Handler: Hapus item bantuan tertentu dari riwayat siswa
+  const handleDeleteBantuanRecord = (recordId: string) => {
+    if (!selectedStudentForBantuanId) return;
+    const targetStudent = students.find(s => s.id === selectedStudentForBantuanId);
+    if (!targetStudent) return;
+
+    if (!confirm('Apakah Anda yakin ingin menghapus catatan bantuan ini dari riwayat siswa?')) {
       return;
     }
 
-    const targetStudent = students.find(s => s.id === quickStudentId);
-    if (!targetStudent) return;
+    const existingHistory = getStudentBantuanRecords(targetStudent, 'ALL');
+    const updatedHistory = existingHistory.filter(r => r.id !== recordId);
+    const uniqueTypes = Array.from(new Set(updatedHistory.map(r => r.jenis)));
 
-    updateStudent(quickStudentId, {
-      penerimaBantuan: quickJenisList.join(', '),
-      jenisBantuanList: quickJenisList,
-      bantuanLainnya: quickJenisList.includes('Bantuan Lainnya') ? quickBantuanLainnya : '',
-      tahunBantuan: quickTahunBantuan,
-      tahapBantuan: quickTahap,
-      tanggalMenerimaBantuan: quickTanggalMenerima,
-      nominalBantuan: quickNominal,
-      keteranganBantuan: quickKeterangan,
+    updateStudent(selectedStudentForBantuanId, {
+      riwayatBantuan: updatedHistory,
+      penerimaBantuan: uniqueTypes.length > 0 ? uniqueTypes.join(', ') : 'Tidak',
+      jenisBantuanList: uniqueTypes,
     });
 
-    logActivity('EDIT', `Menetapkan status penerima bantuan untuk ${targetStudent.namaLengkap} (${quickJenisList.join(', ')} - ${quickTahap})`);
-    setIsQuickAddOpen(false);
-    setQuickStudentId('');
-    setQuickBantuanLainnya('');
-    setQuickKeterangan('');
-    setQuickTahap('Tahap 1');
-    setQuickTanggalMenerima(new Date().toISOString().split('T')[0]);
+    logActivity('EDIT', `Menghapus salah satu catatan bantuan dari riwayat ${targetStudent.namaLengkap}`);
+    setModalNotification('Catatan bantuan berhasil dihapus dari riwayat siswa.');
+    setTimeout(() => {
+      setModalNotification(null);
+    }, 3000);
   };
 
   // Handler: Export to Excel (.xlsx)
   const handleExportExcel = () => {
     try {
-      const dataRows = filteredRecipients.map((s, idx) => ({
-        'No': idx + 1,
-        'Nama Lengkap Siswa': s.namaLengkap,
-        'NIS': s.noInduk,
-        'NISN': s.nisn,
-        'Jenis Kelamin': s.jenisKelamin === 'L' ? 'Laki-laki' : 'Perempuan',
-        'Kelas Saat Ini': s.kelasSekarang,
-        'Program / Jenis Bantuan': getStudentBantuanTypes(s).join(', '),
-        'Rincian / Bantuan Lainnya': s.bantuanLainnya || '-',
-        'Tahun Pelajaran': getBantuanYear(s),
-        'Tahap Bantuan': s.tahapBantuan || 'Tahap 1',
-        'Tanggal Menerima': s.tanggalMenerimaBantuan ? formatIndonesianDate(s.tanggalMenerimaBantuan) : '-',
-        'Nominal Bantuan': s.nominalBantuan || '-',
-        'Keterangan / No. SK': s.keteranganBantuan || '-',
-      }));
+      const dataRows = filteredRecipients.map((s, idx) => {
+        const records = getStudentBantuanRecords(s, selectedTP);
+        const programList = records.length > 0 
+          ? records.map(r => `${r.jenis}${r.tahap ? ` (${r.tahap})` : ''}`).join('; ')
+          : getStudentBantuanTypes(s).join(', ');
+        const nominalList = records.length > 0
+          ? records.map(r => r.nominal).filter(Boolean).join('; ')
+          : s.nominalBantuan || '-';
+        const tahapList = records.length > 0
+          ? records.map(r => r.tahap).filter(Boolean).join(', ')
+          : s.tahapBantuan || 'Tahap 1';
+        const tglList = records.length > 0
+          ? records.map(r => r.tanggalMenerima ? formatIndonesianDate(r.tanggalMenerima) : '-').join('; ')
+          : (s.tanggalMenerimaBantuan ? formatIndonesianDate(s.tanggalMenerimaBantuan) : '-');
+        const ketList = records.length > 0
+          ? records.map(r => r.keterangan).filter(Boolean).join('; ')
+          : s.keteranganBantuan || '-';
+
+        return {
+          'No': idx + 1,
+          'Nama Lengkap Siswa': s.namaLengkap,
+          'NIS': s.noInduk,
+          'NISN': s.nisn,
+          'Jenis Kelamin': s.jenisKelamin === 'L' ? 'Laki-laki' : 'Perempuan',
+          'Kelas Saat Ini': s.kelasSekarang,
+          'Program / Jenis Bantuan': programList,
+          'Rincian / Bantuan Lainnya': s.bantuanLainnya || '-',
+          'Tahun Pelajaran': getBantuanYear(s),
+          'Tahap / Termin': tahapList,
+          'Tanggal Menerima': tglList,
+          'Nominal Bantuan': nominalList,
+          'Keterangan / No. SK': ketList,
+          'Total Riwayat Bantuan': records.length || 1,
+        };
+      });
 
       const summaryRows = [
         { 'Kategori': 'Tahun Pelajaran Acuan', 'Jumlah': selectedTP === 'ALL' ? 'Semua Tahun' : selectedTP },
@@ -449,14 +599,15 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
             <span>Ekspor Excel</span>
           </button>
 
-          {/* Tombol Quick Tambah Bantuan */}
+          {/* Tombol Menu "Tambahkan Bantuan" */}
           <button
             type="button"
-            onClick={() => setIsQuickAddOpen(true)}
+            onClick={() => handleOpenAddBantuan(null)}
             className="flex items-center gap-1.5 px-3.5 py-2 bg-[#003399] hover:bg-[#002266] text-white text-xs font-extrabold rounded-xl transition-all shadow-md cursor-pointer hover:scale-[1.02] active:scale-95"
+            title="Buka menu Tambahkan Bantuan dan kelola riwayat beberapa bantuan siswa di tahun aktif"
           >
             <Plus className="w-4 h-4 text-amber-300" />
-            <span>Atur Penerima</span>
+            <span>Tambahkan Bantuan</span>
           </button>
         </div>
       </div>
@@ -660,15 +811,15 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                     <HandCoins className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
                     <p className="font-bold text-sm">Tidak ada siswa penerima bantuan yang sesuai kriteria.</p>
                     <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-                      Siswa dapat didaftarkan sebagai penerima bantuan melalui menu Edit Siswa (Nomor 6) atau gunakan tombol di bawah.
+                      Siswa dapat didaftarkan sebagai penerima bantuan melalui menu "Tambahkan Bantuan" di atas atau tombol di bawah ini.
                     </p>
                     <button
                       type="button"
-                      onClick={() => setIsQuickAddOpen(true)}
+                      onClick={() => handleOpenAddBantuan(null)}
                       className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Atur / Tetapkan Penerima Bantuan</span>
+                      <span>Tambahkan Bantuan Baru</span>
                     </button>
                   </td>
                 </tr>
@@ -676,6 +827,7 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                 filteredRecipients.map((s, idx) => {
                   const bTypes = getStudentBantuanTypes(s);
                   const bYear = getBantuanYear(s);
+                  const studentRecords = getStudentBantuanRecords(s, selectedTP);
                   return (
                     <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                       <td className="py-3 px-3.5 text-center font-mono text-slate-500">{idx + 1}</td>
@@ -712,8 +864,14 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                         {s.kelasSekarang}
                       </td>
                       <td className="py-3 px-3.5">
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap items-center gap-1">
                           {bTypes.map(t => renderJenisBadge(t, s.bantuanLainnya))}
+                          {studentRecords.length > 1 && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                              <History className="w-2.5 h-2.5" />
+                              <span>{studentRecords.length} Bantuan</span>
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="py-3 px-3.5 font-semibold text-slate-800 dark:text-slate-200">
@@ -730,9 +888,22 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                         </span>
                       </td>
                       <td className="py-3 px-3.5">
-                        <span className="px-2 py-0.5 rounded-md font-semibold text-[10.5px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 whitespace-nowrap">
-                          {s.tahapBantuan || 'Tahap 1'}
-                        </span>
+                        {studentRecords.length > 1 ? (
+                          <div className="flex flex-col gap-0.5">
+                            {studentRecords.slice(0, 2).map((rec, rIdx) => (
+                              <span key={rIdx} className="px-1.5 py-0.2 rounded-md font-semibold text-[10px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 whitespace-nowrap">
+                                {rec.tahap || 'Tahap 1'}
+                              </span>
+                            ))}
+                            {studentRecords.length > 2 && (
+                              <span className="text-[9px] text-slate-400">+{studentRecords.length - 2} tahap</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md font-semibold text-[10.5px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 whitespace-nowrap">
+                            {s.tahapBantuan || 'Tahap 1'}
+                          </span>
+                        )}
                       </td>
                       <td className="py-3 px-3.5 text-slate-600 dark:text-slate-300 whitespace-nowrap">
                         {s.tanggalMenerimaBantuan ? (
@@ -745,13 +916,32 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                         )}
                       </td>
                       <td className="py-3 px-3.5 font-mono font-bold text-emerald-700 dark:text-emerald-400">
-                        {s.nominalBantuan || '-'}
+                        {studentRecords.length > 1 ? (
+                          <div className="flex flex-col gap-0.5 text-[10.5px]">
+                            {studentRecords.slice(0, 2).map((rec, rIdx) => (
+                              <span key={rIdx}>{rec.nominal || '-'}</span>
+                            ))}
+                            {studentRecords.length > 2 && (
+                              <span className="text-[9px] font-sans text-slate-400 font-normal">+{studentRecords.length - 2} lainnya</span>
+                            )}
+                          </div>
+                        ) : (
+                          s.nominalBantuan || '-'
+                        )}
                       </td>
                       <td className="py-3 px-3.5 text-slate-600 dark:text-slate-400">
                         {s.keteranganBantuan || '-'}
                       </td>
                       <td className="py-3 px-3.5 text-center">
                         <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAddBantuan(s.id)}
+                            className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 transition-colors cursor-pointer"
+                            title="Kelola & Tambahkan Riwayat Bantuan Siswa (TP Aktif)"
+                          >
+                            <HandCoins className="w-3.5 h-3.5" />
+                          </button>
                           <button
                             type="button"
                             onClick={() => onEditStudent(s, 'bantuan')}
@@ -780,210 +970,454 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* 5. MODAL QUICK ATUR / TETAPKAN PENERIMA BANTUAN */}
+      {/* 5. MODAL MENU "TAMBAHKAN BANTUAN" & RIWAYAT BANTUAN SISWA (TP AKTIF) */}
       {/* ========================================================================= */}
-      {isQuickAddOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg my-auto overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-[#003399] text-white">
-              <div className="flex items-center gap-2">
-                <HandCoins className="w-5 h-5 text-amber-300" />
-                <h3 className="text-sm font-extrabold uppercase tracking-wider">
-                  Tetapkan Status Siswa Penerima Bantuan
-                </h3>
+      {isAddBantuanModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-4xl my-auto max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Header Modal */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-[#003399] text-white shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-white/10 rounded-lg">
+                  <HandCoins className="w-5 h-5 text-amber-300" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-wider flex items-center gap-2">
+                    <span>Tambahkan Bantuan & Riwayat Bantuan Siswa</span>
+                    <span className="px-2 py-0.2 bg-amber-400 text-slate-950 font-black text-[10px] rounded-full">
+                      TP {activeTP}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-blue-100 font-medium">
+                    Kelola riwayat penerimaan beberapa bantuan siswa pada Tahun Pelajaran aktif
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
-                onClick={() => setIsQuickAddOpen(false)}
-                className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10 cursor-pointer"
+                onClick={() => setIsAddBantuanModalOpen(false)}
+                className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveQuickAdd} className="p-5 space-y-4">
-              {/* Pilih Siswa */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Pilih Siswa Aktif <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  value={quickStudentId}
-                  onChange={(e) => setQuickStudentId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 cursor-pointer"
-                  required
-                >
-                  <option value="">-- Pilih Siswa Aktif --</option>
-                  {activeStudentsInSchool
-                    .sort((a, b) => a.namaLengkap.localeCompare(b.namaLengkap))
-                    .map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.namaLengkap} - {s.kelasSekarang} (NIS: {s.noInduk})
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              {/* Pilihan Jenis Bantuan */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Pilih Program Bantuan <span className="text-rose-500">*</span>
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {[
-                    'Penerima PIP',
-                    'Baznas',
-                    'Bantuan Sekolah',
-                    'Bantuan dari desa',
-                    'Bantuan Lainnya',
-                  ].map(jenis => {
-                    const checked = quickJenisList.includes(jenis);
-                    return (
-                      <label
-                        key={jenis}
-                        className={cn(
-                          "flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-xs font-bold transition-all",
-                          checked
-                            ? "border-blue-500 bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-200"
-                            : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
-                        )}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setQuickJenisList([...quickJenisList, jenis]);
-                            } else {
-                              setQuickJenisList(quickJenisList.filter(x => x !== jenis));
-                            }
-                          }}
-                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
-                        />
-                        <span>{jenis}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Input Bantuan Lainnya jika dicentang */}
-              {quickJenisList.includes('Bantuan Lainnya') && (
-                <div className="p-3 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 space-y-1">
-                  <label className="block text-xs font-bold text-amber-900 dark:text-amber-300">
-                    Nama / Jenis Bantuan Lainnya <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={quickBantuanLainnya}
-                    onChange={(e) => setQuickBantuanLainnya(e.target.value)}
-                    placeholder="Contoh: Beasiswa CSR PT RAPP, Beasiswa Alumni..."
-                    className="w-full px-3 py-1.5 text-xs font-bold rounded-md border border-amber-300 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-                    required
-                  />
+            {/* Body Modal Scrollable */}
+            <div className="p-5 md:p-6 overflow-y-auto space-y-6">
+              {/* Notifikasi Flash Sukses/Info */}
+              {modalNotification && (
+                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center justify-between gap-2 animate-in fade-in">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{modalNotification}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setModalNotification(null)}
+                    className="text-xs text-emerald-700 hover:text-emerald-900 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               )}
 
-              {/* Tahun Pelajaran & Tahap */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* 1. Pemilihan Siswa Aktif */}
+              {(() => {
+                const targetStudent = students.find(s => s.id === selectedStudentForBantuanId);
+                const activeRecords = targetStudent ? getStudentBantuanRecords(targetStudent, activeTP) : [];
+
+                return (
+                  <>
+                    <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <label className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                          <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                          <span>Pilih Siswa Aktif Penerima Bantuan</span>
+                          <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="relative w-full sm:w-64">
+                          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input
+                            type="text"
+                            value={studentSearchInModal}
+                            onChange={(e) => setStudentSearchInModal(e.target.value)}
+                            placeholder="Cari nama / NIS siswa..."
+                            className="w-full pl-8 pr-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+
+                      <select
+                        value={selectedStudentForBantuanId}
+                        onChange={(e) => setSelectedStudentForBantuanId(e.target.value)}
+                        className="w-full px-3 py-2 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 cursor-pointer focus:ring-2 focus:ring-blue-500"
+                      >
+                        {activeStudentsInSchool
+                          .filter(s => {
+                            if (!studentSearchInModal.trim()) return true;
+                            const q = studentSearchInModal.toLowerCase();
+                            return s.namaLengkap.toLowerCase().includes(q) || s.noInduk.toLowerCase().includes(q) || s.kelasSekarang.toLowerCase().includes(q);
+                          })
+                          .sort((a, b) => a.namaLengkap.localeCompare(b.namaLengkap))
+                          .map(s => {
+                            const recCount = getStudentBantuanRecords(s, activeTP).length;
+                            return (
+                              <option key={s.id} value={s.id}>
+                                {s.namaLengkap} — {s.kelasSekarang} (NIS: {s.noInduk}) {recCount > 0 ? `[${recCount} Bantuan di TP ${activeTP}]` : ''}
+                              </option>
+                            );
+                          })}
+                      </select>
+
+                      {/* Info Siswa Terpilih Card */}
+                      {targetStudent && (
+                        <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-blue-200 dark:border-blue-900/50 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 flex items-center justify-center font-black text-sm shrink-0 overflow-hidden">
+                              {targetStudent.fotoUrl ? (
+                                <img src={targetStudent.fotoUrl} alt={targetStudent.namaLengkap} className="w-full h-full object-cover" />
+                              ) : (
+                                <span>{targetStudent.namaLengkap.charAt(0)}</span>
+                              )}
+                            </div>
+                            <div>
+                              <div className="font-black text-slate-900 dark:text-slate-100 text-sm flex items-center gap-2">
+                                <span>{targetStudent.namaLengkap}</span>
+                                <span className={cn(
+                                  "text-[10px] font-extrabold px-1.5 py-0.2 rounded",
+                                  targetStudent.jenisKelamin === 'L' ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300" : "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                                )}>
+                                  {targetStudent.jenisKelamin}
+                                </span>
+                                <span className="text-[10px] font-extrabold px-2 py-0.2 rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                                  {targetStudent.kelasSekarang}
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono flex items-center gap-2 mt-0.5">
+                                <span>NIS: {targetStudent.noInduk}</span>
+                                <span>•</span>
+                                <span>NISN: {targetStudent.nisn || '-'}</span>
+                                <span>•</span>
+                                <span>Status: {targetStudent.status || 'Aktif'}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className={cn(
+                              "px-3 py-1 rounded-lg text-xs font-black flex items-center gap-1.5 shadow-2xs",
+                              activeRecords.length > 0 
+                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
+                                : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                            )}>
+                              <History className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                              <span>{activeRecords.length} Bantuan di TP {activeTP}</span>
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 2. Daftar Riwayat Bantuan Siswa di TP Aktif */}
+                    <div className="space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                        <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                          <History className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                          <span>Riwayat Beberapa Bantuan Siswa di TP {activeTP}</span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                            {activeRecords.length} Catatan
+                          </span>
+                        </h4>
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          Memuat riwayat bantuan yang diterima siswa di tahun ajaran aktif
+                        </span>
+                      </div>
+
+                      {activeRecords.length === 0 ? (
+                        <div className="p-5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 text-center text-slate-500">
+                          <Clock className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-1.5" />
+                          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                            Belum ada riwayat bantuan untuk {targetStudent?.namaLengkap || 'siswa terpilih'} pada TP {activeTP}.
+                          </p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            Gunakan formulir di bawah ini untuk menambahkan bantuan ke riwayat siswa.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {activeRecords.map((record, rIdx) => {
+                            const statusColor = record.statusPencairan === 'Sudah Cair'
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300'
+                              : record.statusPencairan === 'Dalam Proses'
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-300'
+                              : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300';
+
+                            return (
+                              <div
+                                key={record.id || rIdx}
+                                className="p-3.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs hover:shadow-xs transition-shadow space-y-2.5"
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="space-y-1">
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                      {renderJenisBadge(record.jenis, record.bantuanLainnya)}
+                                      {record.tahap && (
+                                        <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                          {record.tahap}
+                                        </span>
+                                      )}
+                                      <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold border", statusColor)}>
+                                        {record.statusPencairan || 'Sudah Cair'}
+                                      </span>
+                                    </div>
+                                    {record.bantuanLainnya && record.jenis === 'Bantuan Lainnya' && (
+                                      <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                                        {record.bantuanLainnya}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteBantuanRecord(record.id)}
+                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+                                    title="Hapus catatan bantuan ini dari riwayat"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100 dark:border-slate-700/60 text-[11px]">
+                                  <div>
+                                    <span className="text-slate-400 block text-[10px]">Nominal:</span>
+                                    <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                                      {record.nominal || '-'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400 block text-[10px]">Tgl Menerima:</span>
+                                    <span className="font-medium text-slate-700 dark:text-slate-300">
+                                      {record.tanggalMenerima ? formatIndonesianDate(record.tanggalMenerima) : '-'}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {record.keterangan && (
+                                  <div className="text-[10.5px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                                    <span className="font-bold text-slate-600 dark:text-slate-300">Ket / SK: </span>
+                                    <span>{record.keterangan}</span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
+
+              {/* 3. Formulir Tambahkan Bantuan Baru */}
+              <form onSubmit={handleSaveNewBantuan} className="bg-slate-50 dark:bg-slate-800/40 p-4 md:p-5 rounded-2xl border border-blue-200 dark:border-blue-900/40 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2.5">
+                  <h4 className="text-xs font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
+                    <Plus className="w-4 h-4 text-blue-600" />
+                    <span>Formulir Tambah Bantuan Baru ke Riwayat Siswa</span>
+                  </h4>
+                  <span className="text-[11px] font-bold text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-950 px-2 py-0.5 rounded-md">
+                    TP {formTahunPelajaran}
+                  </span>
+                </div>
+
+                {/* Program Bantuan Choices */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Tahun Pelajaran Bantuan
+                  <label className="block text-xs font-black text-slate-700 dark:text-slate-300 mb-2">
+                    Pilih Program Bantuan <span className="text-rose-500">*</span>
                   </label>
-                  <select
-                    value={quickTahunBantuan}
-                    onChange={(e) => setQuickTahunBantuan(e.target.value)}
-                    className="w-full px-3 py-2 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 cursor-pointer"
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                    {[
+                      { id: 'Penerima PIP', label: 'PIP Kemdikbud', icon: CreditCard, color: 'text-blue-600' },
+                      { id: 'Baznas', label: 'Baznas', icon: Landmark, color: 'text-emerald-600' },
+                      { id: 'Bantuan Sekolah', label: 'Bantuan Sekolah', icon: School, color: 'text-indigo-600' },
+                      { id: 'Bantuan dari desa', label: 'Bantuan Desa', icon: MapPin, color: 'text-orange-600' },
+                      { id: 'Bantuan Lainnya', label: 'Bantuan Lainnya', icon: Sparkles, color: 'text-amber-600' },
+                    ].map(item => {
+                      const isSelected = formJenis === item.id;
+                      const IconComponent = item.icon;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setFormJenis(item.id)}
+                          className={cn(
+                            "p-2.5 rounded-xl border text-left font-bold text-xs transition-all flex flex-col gap-1.5 cursor-pointer",
+                            isSelected
+                              ? "border-blue-500 bg-blue-50/80 dark:bg-blue-950/70 text-blue-950 dark:text-blue-200 ring-2 ring-blue-500/30"
+                              : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300"
+                          )}
+                        >
+                          <IconComponent className={cn("w-4 h-4", item.color)} />
+                          <span className="truncate">{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Input Bantuan Lainnya jika dipilih */}
+                {formJenis === 'Bantuan Lainnya' && (
+                  <div className="p-3 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 space-y-1.5">
+                    <label className="block text-xs font-bold text-amber-900 dark:text-amber-300">
+                      Nama / Jenis Bantuan Lainnya <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formBantuanLainnya}
+                      onChange={(e) => setFormBantuanLainnya(e.target.value)}
+                      placeholder="Contoh: Beasiswa CSR PT Riau Andalan Pulp, Beasiswa Alumni..."
+                      className="w-full px-3 py-2 text-xs font-bold rounded-lg border border-amber-300 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                      required
+                    />
+                  </div>
+                )}
+
+                {/* Grid Tahap, Tahun Pelajaran, Tanggal, Status */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Tahun Pelajaran */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Tahun Pelajaran
+                    </label>
+                    <select
+                      value={formTahunPelajaran}
+                      onChange={(e) => setFormTahunPelajaran(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 cursor-pointer"
+                    >
+                      {(schoolProfile?.daftarTahunPelajaran || ['2023/2024', '2024/2025', '2025/2026', '2026/2027', '2027/2028']).map(tp => (
+                        <option key={tp} value={tp}>TP {tp} {tp === activeTP ? '(Aktif)' : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Tahap / Termin */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Tahap / Termin Penyaluran
+                    </label>
+                    <input
+                      type="text"
+                      list="modal-tahap-options"
+                      value={formTahap}
+                      onChange={(e) => setFormTahap(e.target.value)}
+                      placeholder="Contoh: Tahap 1, Tahap 2, dst."
+                      className="w-full px-3 py-2 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                      required
+                    />
+                    <datalist id="modal-tahap-options">
+                      <option value="Tahap 1" />
+                      <option value="Tahap 2" />
+                      <option value="Tahap 3" />
+                      <option value="Tahap 4" />
+                      <option value="Gelombang 1" />
+                      <option value="Gelombang 2" />
+                      <option value="Semester Ganjil" />
+                      <option value="Semester Genap" />
+                    </datalist>
+                  </div>
+
+                  {/* Tanggal Menerima */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Tanggal Penerimaan
+                    </label>
+                    <input
+                      type="date"
+                      value={formTanggalMenerima}
+                      onChange={(e) => setFormTanggalMenerima(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Status Pencairan */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Status Pencairan
+                    </label>
+                    <select
+                      value={formStatusPencairan}
+                      onChange={(e) => setFormStatusPencairan(e.target.value as any)}
+                      className="w-full px-3 py-2 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 cursor-pointer"
+                    >
+                      <option value="Sudah Cair">Sudah Cair</option>
+                      <option value="Dalam Proses">Dalam Proses</option>
+                      <option value="Belum Cair">Belum Cair</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Nominal dan Keterangan */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Nominal / Fasilitas Bantuan
+                    </label>
+                    <input
+                      type="text"
+                      value={formNominal}
+                      onChange={(e) => setFormNominal(e.target.value)}
+                      placeholder="Contoh: Rp 450.000 / tahun"
+                      className="w-full px-3 py-2 text-xs font-mono font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                    />
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {['Rp 450.000 / tahun', 'Rp 225.000 / semester', 'Rp 500.000', 'Rp 1.000.000'].map(preset => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setFormNominal(preset)}
+                          className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 cursor-pointer"
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Keterangan / No. SK / No. Rekening (Opsional)
+                    </label>
+                    <input
+                      type="text"
+                      value={formKeterangan}
+                      onChange={(e) => setFormKeterangan(e.target.value)}
+                      placeholder="Contoh: SK PIP No. 421/2026, Rek SimPel BRI..."
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                    />
+                    <span className="text-[10.5px] text-slate-400 block mt-1">
+                      Catatan khusus mengenai penyaluran atau dokumen pencairan bantuan ini.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-slate-200 dark:border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddBantuanModalOpen(false)}
+                    className="px-4 py-2 text-xs font-bold rounded-xl text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition-colors cursor-pointer"
                   >
-                    {(schoolProfile?.daftarTahunPelajaran || ['2023/2024', '2024/2025', '2025/2026', '2026/2027', '2027/2028']).map(tp => (
-                      <option key={tp} value={tp}>TP {tp}</option>
-                    ))}
-                  </select>
+                    Tutup
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 text-xs font-black rounded-xl bg-[#003399] hover:bg-[#002266] text-white shadow-md transition-all flex items-center gap-1.5 cursor-pointer hover:scale-[1.02] active:scale-95"
+                  >
+                    <Plus className="w-4 h-4 text-amber-300" />
+                    <span>Simpan Bantuan ke Riwayat Siswa</span>
+                  </button>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Tahap Penyaluran
-                  </label>
-                  <input
-                    type="text"
-                    list="quick-tahap-options"
-                    value={quickTahap}
-                    onChange={(e) => setQuickTahap(e.target.value)}
-                    placeholder="Contoh: Tahap 1, Tahap 2, dst."
-                    className="w-full px-3 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                  />
-                  <datalist id="quick-tahap-options">
-                    <option value="Tahap 1" />
-                    <option value="Tahap 2" />
-                    <option value="Tahap 3" />
-                    <option value="Tahap 4" />
-                    <option value="Gelombang 1" />
-                    <option value="Gelombang 2" />
-                    <option value="Semester Ganjil" />
-                    <option value="Semester Genap" />
-                  </datalist>
-                </div>
-              </div>
-
-              {/* Tanggal Menerima & Nominal */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Tanggal Menerima
-                  </label>
-                  <input
-                    type="date"
-                    value={quickTanggalMenerima}
-                    onChange={(e) => setQuickTanggalMenerima(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Nominal / Fasilitas Bantuan
-                  </label>
-                  <input
-                    type="text"
-                    value={quickNominal}
-                    onChange={(e) => setQuickNominal(e.target.value)}
-                    placeholder="Contoh: Rp 450.000 / tahun"
-                    className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                  />
-                </div>
-              </div>
-
-              {/* Keterangan */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Keterangan / No. SK / No. KIP (Opsional)
-                </label>
-                <input
-                  type="text"
-                  value={quickKeterangan}
-                  onChange={(e) => setQuickKeterangan(e.target.value)}
-                  placeholder="Contoh: SK PIP No. 421/2026"
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                />
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsQuickAddOpen(false)}
-                  className="px-4 py-2 text-xs font-bold rounded-xl text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition-colors cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 text-xs font-black rounded-xl bg-[#003399] hover:bg-[#002266] text-white shadow-md transition-all cursor-pointer"
-                >
-                  Simpan Status Penerima
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}

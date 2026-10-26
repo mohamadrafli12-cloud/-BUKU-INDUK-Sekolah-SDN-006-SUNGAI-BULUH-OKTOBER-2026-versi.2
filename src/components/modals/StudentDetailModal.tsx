@@ -2143,34 +2143,76 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {isPenerimaBantuan ? (
                         <>
-                          {/* Record Bantuan Aktif */}
-                          <tr className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors">
-                            <td className="py-2.5 px-3 font-mono font-medium text-slate-800 dark:text-slate-200">
-                              {student.tanggalMenerimaBantuan 
-                                ? formatIndonesianDate(student.tanggalMenerimaBantuan)
-                                : (student.tahunBantuan || '2026/2027')}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <span className="font-bold text-slate-900 dark:text-slate-100">
-                                {activeAssistanceTypes.join(', ') || student.penerimaBantuan || 'Bantuan Pendidikan'}
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                              {student.tahapBantuan || 'Tahap 1'}
-                            </td>
-                            <td className="py-2.5 px-3 font-bold text-emerald-600 dark:text-emerald-400">
-                              {student.nominalBantuan || 'Rp 450.000'}
-                            </td>
-                            <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 max-w-xs truncate" title={student.keteranganBantuan || 'Tercatat di Buku Induk'}>
-                              {student.keteranganBantuan || 'Tercatat resmi dalam penetapan penerima bantuan'}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
-                                <CheckCircle className="w-3 h-3" />
-                                Tersalurkan
-                              </span>
-                            </td>
-                          </tr>
+                          {/* Record Bantuan Aktif dari riwayatBantuan jika tersedia */}
+                          {student.riwayatBantuan && student.riwayatBantuan.length > 0 ? (
+                            student.riwayatBantuan.map((r) => (
+                              <tr key={r.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors">
+                                <td className="py-2.5 px-3 font-mono font-medium text-slate-800 dark:text-slate-200">
+                                  {r.tanggalMenerima 
+                                    ? formatIndonesianDate(r.tanggalMenerima)
+                                    : (r.tahunPelajaran || 'TP Aktif')}
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 flex-wrap">
+                                    <span>{r.jenis}</span>
+                                    {r.bantuanLainnya && (
+                                      <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">({r.bantuanLainnya})</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                                  {r.tahap || 'Tahap 1'}
+                                </td>
+                                <td className="py-2.5 px-3 font-bold text-emerald-600 dark:text-emerald-400">
+                                  {r.nominal || 'Rp 450.000'}
+                                </td>
+                                <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 max-w-xs truncate" title={r.keterangan || 'Tercatat di Buku Induk'}>
+                                  {r.keterangan || 'Tercatat resmi dalam penetapan penerima bantuan'}
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <span className={cn(
+                                    "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold",
+                                    r.statusPencairan === 'Sudah Cair'
+                                      ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300"
+                                      : r.statusPencairan === 'Dalam Proses'
+                                      ? "bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300"
+                                      : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                                  )}>
+                                    <CheckCircle className="w-3 h-3" />
+                                    {r.statusPencairan || 'Tersalurkan'}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors">
+                              <td className="py-2.5 px-3 font-mono font-medium text-slate-800 dark:text-slate-200">
+                                {student.tanggalMenerimaBantuan 
+                                  ? formatIndonesianDate(student.tanggalMenerimaBantuan)
+                                  : (student.tahunBantuan || '2026/2027')}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <span className="font-bold text-slate-900 dark:text-slate-100">
+                                  {activeAssistanceTypes.join(', ') || student.penerimaBantuan || 'Bantuan Pendidikan'}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                                {student.tahapBantuan || 'Tahap 1'}
+                              </td>
+                              <td className="py-2.5 px-3 font-bold text-emerald-600 dark:text-emerald-400">
+                                {student.nominalBantuan || 'Rp 450.000'}
+                              </td>
+                              <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 max-w-xs truncate" title={student.keteranganBantuan || 'Tercatat di Buku Induk'}>
+                                {student.keteranganBantuan || 'Tercatat resmi dalam penetapan penerima bantuan'}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
+                                  <CheckCircle className="w-3 h-3" />
+                                  Tersalurkan
+                                </span>
+                              </td>
+                            </tr>
+                          )}
 
                           {/* Catatan dari Mutasi jika ada */}
                           {student.mutasi && (

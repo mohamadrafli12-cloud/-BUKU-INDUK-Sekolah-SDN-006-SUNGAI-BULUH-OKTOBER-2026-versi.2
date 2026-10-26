@@ -174,6 +174,7 @@ const getInitialStudentData = (
       tanggalMenerimaBantuan: studentToEdit.tanggalMenerimaBantuan || '',
       nominalBantuan: studentToEdit.nominalBantuan || '',
       keteranganBantuan: studentToEdit.keteranganBantuan || '',
+      riwayatBantuan: studentToEdit.riwayatBantuan || [],
     };
   }
 
@@ -273,6 +274,7 @@ const getInitialStudentData = (
     tanggalMenerimaBantuan: '',
     nominalBantuan: '',
     keteranganBantuan: '',
+    riwayatBantuan: [],
   };
 };
 

@@ -11,6 +11,19 @@ export type UserRole = 'admin' | 'user' | 'umum';
 // Jenis Bantuan Siswa (Kemdikbudristek, Baznas, Desa, Sekolah, Lainnya)
 export type JenisBantuan = 'Penerima PIP' | 'Baznas' | 'Bantuan Sekolah' | 'Bantuan dari desa' | 'Bantuan Lainnya';
 
+export interface BantuanRecord {
+  id: string;
+  jenis: string; // 'Penerima PIP' | 'Baznas' | 'Bantuan Sekolah' | 'Bantuan dari desa' | 'Bantuan Lainnya' | string
+  bantuanLainnya?: string;
+  tahunPelajaran: string; // Contoh: "2026/2027"
+  tahap: string; // Contoh: "Tahap 1", "Tahap 2", "Semester Ganjil", dll.
+  tanggalMenerima?: string; // YYYY-MM-DD
+  nominal?: string; // Contoh: "Rp 450.000 / tahun"
+  keterangan?: string; // Catatan, Nomor SK, Bank/Rekening
+  statusPencairan?: 'Sudah Cair' | 'Dalam Proses' | 'Belum Cair';
+  dibuatPada?: string;
+}
+
 export interface ParentInfo {
   nama: string;
   nik: string;
@@ -205,6 +218,7 @@ export interface Student {
   tanggalMenerimaBantuan?: string; // Tanggal menerima bantuan (YYYY-MM-DD)
   nominalBantuan?: string; // Nominal bantuan (contoh: "Rp 450.000 / tahun")
   keteranganBantuan?: string; // Catatan/No KIP/SK Penerima Bantuan
+  riwayatBantuan?: BantuanRecord[]; // Riwayat beberapa bantuan yang diterima siswa di tahun pelajaran aktif
 
   // Modul Lanjutan
   mutasi?: MutationRecord;
