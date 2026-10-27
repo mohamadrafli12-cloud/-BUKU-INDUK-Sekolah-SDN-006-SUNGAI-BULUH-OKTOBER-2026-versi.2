@@ -176,55 +176,136 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
     return academicMonths.find(m => m.key === selectedMonthKey) || academicMonths[0];
   }, [academicMonths, selectedMonthKey]);
 
-  // Active students exclusively in Grade 1 to 6 for the active academic year
-  const activeStudentsGrade1to6 = useMemo(() => {
-    return projectedStudents.filter(s => s.status === 'Aktif' && isKelas1Sampai6(s.kelasSekarang));
-  }, [projectedStudents]);
-
   // Helper to extract student's admission year-month (YYYY-MM)
-  const getStudentAdmissionMonthKey = (s: Student): string | null => {
-    if (s.tanggalDiterima && s.tanggalDiterima.length >= 7) {
-      return s.tanggalDiterima.substring(0, 7);
+  const getStudentAdmissionMonthKey = (s: Student): string => {
+    if (s.tanggalDiterima && s.tanggalDiterima.trim().length >= 7) {
+      const match = s.tanggalDiterima.trim().match(/^(\d{4}-\d{2})/);
+      if (match) return match[1];
     }
-    // Fallback: If student entered during startYear with no date, assume beginning of year (Juli)
-    if (s.tahunMasuk && s.tahunMasuk.includes(String(startYear))) {
-      return `${startYear}-07`;
+    if ((s as any).tanggalMasuk && String((s as any).tanggalMasuk).length >= 7) {
+      const match = String((s as any).tanggalMasuk).match(/^(\d{4}-\d{2})/);
+      if (match) return match[1];
     }
-    return null;
+    if (s.tahunMasuk && /^\d{4}$/.test(s.tahunMasuk.trim())) {
+      return `${s.tahunMasuk.trim()}-07`;
+    }
+    if (s.createdAt && s.createdAt.length >= 7) {
+      const match = s.createdAt.match(/^(\d{4}-\d{2})/);
+      if (match) return match[1];
+    }
+    // Fallback: estimate from grade in startYear
+    const grade = getTingkatKelasNumber(s.kelasSekarang || 'Kelas 1');
+    const estimatedYear = startYear - (Math.max(1, grade) - 1);
+    return `${estimatedYear}-07`;
   };
 
   // Helper to extract student's mutation out year-month (YYYY-MM)
   const getStudentMutationMonthKey = (s: Student): string | null => {
     const tgl = s.mutasi?.tglMeninggalkan || s.mutasi?.dikeluarkanTanggal;
-    if (tgl && tgl.length >= 7) {
-      return tgl.substring(0, 7);
+    if (tgl && tgl.trim().length >= 7) {
+      const match = tgl.trim().match(/^(\d{4}-\d{2})/);
+      if (match) return match[1];
     }
-    if (s.status === 'Mutasi Keluar' && s.updatedAt && s.updatedAt.length >= 7) {
-      return s.updatedAt.substring(0, 7);
+    if (s.status === 'Mutasi Keluar') {
+      if (s.updatedAt && s.updatedAt.length >= 7) {
+        const match = s.updatedAt.match(/^(\d{4}-\d{2})/);
+        if (match) return match[1];
+      }
+      return `${startYear}-07`;
+    }
+    if (s.status === 'Drop Out' || s.status === 'Meninggal') {
+      if (s.updatedAt && s.updatedAt.length >= 7) {
+        const match = s.updatedAt.match(/^(\d{4}-\d{2})/);
+        if (match) return match[1];
+      }
+      return `${startYear}-07`;
     }
     return null;
   };
 
-  // Monthly stats for each of the 12 academic months (Full periodic calculation)
+  // Cohort of students eligible for grades 1-6 in this academic year
+  const eligibleStudentsForTP = useMemo(() => {
+    return projectedStudents.filter(p => {
+      // Must be projected into Grade 1 to 6
+      if (!isKelas1Sampai6(p.kelasSekarang) || p.projectedTingkat < 1 || p.projectedTingkat > 6) {
+        return false;
+      }
+      // If student mutated out BEFORE the academic year started (before startYear-07), exclude
+      const mutKey = getStudentMutationMonthKey(p);
+      if (mutKey && mutKey < `${startYear}-07`) {
+        return false;
+      }
+      // If student admitted AFTER this academic year ended (after endYear-06), exclude
+      const admKey = getStudentAdmissionMonthKey(p);
+      if (admKey > `${endYear}-06`) {
+        return false;
+      }
+      return true;
+    });
+  }, [projectedStudents, startYear, endYear]);
+
+  // Monthly stats for each of the 12 academic months (Full periodic calculation based on mutasi masuk & mutasi keluar)
   const periodicMonthlyStats = useMemo(() => {
+    const startOfJulyKey = `${startYear}-07`;
+
+    // Prior to Month 0 (Juli startYear), students already admitted and not mutated out:
+    let runningActiveList = eligibleStudentsForTP.filter(s => {
+      const admKey = getStudentAdmissionMonthKey(s);
+      const mutKey = getStudentMutationMonthKey(s);
+      const enteredBeforeJuly = admKey < startOfJulyKey;
+      const notMutatedBeforeJuly = !mutKey || mutKey >= startOfJulyKey;
+      return enteredBeforeJuly && notMutatedBeforeJuly;
+    });
+
     return academicMonths.map((m) => {
+      const awalList = [...runningActiveList];
+      const awalL = awalList.filter(s => s.jenisKelamin === 'L').length;
+      const awalP = awalList.filter(s => s.jenisKelamin === 'P').length;
+      const totalAwal = awalList.length;
+
       // Siswa Masuk in this month
-      const masukList = students.filter(s => {
+      const masukList = eligibleStudentsForTP.filter(s => {
         const admKey = getStudentAdmissionMonthKey(s);
         return admKey === m.key;
       });
       const masukL = masukList.filter(s => s.jenisKelamin === 'L').length;
       const masukP = masukList.filter(s => s.jenisKelamin === 'P').length;
+      const masukCount = masukList.length;
 
       // Siswa Mutasi (Keluar) in this month
-      const mutasiList = students.filter(s => {
+      const mutasiList = eligibleStudentsForTP.filter(s => {
         const mutKey = getStudentMutationMonthKey(s);
         return mutKey === m.key;
       });
       const mutasiL = mutasiList.filter(s => s.jenisKelamin === 'L').length;
       const mutasiP = mutasiList.filter(s => s.jenisKelamin === 'P').length;
+      const mutasiCount = mutasiList.length;
 
-      // Total Siswa Aktif per Tingkat (1 s/d 6)
+      // Siswa Akhir = Awal + Masuk - Mutasi Keluar
+      const mutasiIds = new Set(mutasiList.map(s => s.id));
+      const akhirMap = new Map<string, typeof eligibleStudentsForTP[0]>();
+
+      awalList.forEach(s => {
+        if (!mutasiIds.has(s.id)) {
+          akhirMap.set(s.id, s);
+        }
+      });
+      masukList.forEach(s => {
+        if (!mutasiIds.has(s.id)) {
+          akhirMap.set(s.id, s);
+        }
+      });
+
+      const akhirList = Array.from(akhirMap.values());
+      const akhirL = akhirList.filter(s => s.jenisKelamin === 'L').length;
+      const akhirP = akhirList.filter(s => s.jenisKelamin === 'P').length;
+      const totalAkhir = akhirList.length;
+      const netChange = masukCount - mutasiCount;
+
+      // Update runningActiveList for next month
+      runningActiveList = akhirList;
+
+      // Total Siswa Aktif per Tingkat (1 s/d 6) in this month
       const tingkatCounts: Record<number, { total: number; l: number; p: number }> = {
         1: { total: 0, l: 0, p: 0 },
         2: { total: 0, l: 0, p: 0 },
@@ -234,7 +315,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
         6: { total: 0, l: 0, p: 0 },
       };
 
-      activeStudentsGrade1to6.forEach(s => {
+      akhirList.forEach(s => {
         const t = getTingkatKelasNumber(s.kelasSekarang);
         if (t >= 1 && t <= 6) {
           tingkatCounts[t].total += 1;
@@ -243,38 +324,44 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
         }
       });
 
-      const totalAktif = activeStudentsGrade1to6.length;
-      const totalAktifL = activeStudentsGrade1to6.filter(s => s.jenisKelamin === 'L').length;
-      const totalAktifP = activeStudentsGrade1to6.filter(s => s.jenisKelamin === 'P').length;
-
       return {
         month: m,
+        totalAwal,
+        totalAwalL: awalL,
+        totalAwalP: awalP,
+        awalList,
         masukList,
-        masukCount: masukList.length,
+        masukCount,
         masukL,
         masukP,
         mutasiList,
-        mutasiCount: mutasiList.length,
+        mutasiCount,
         mutasiL,
         mutasiP,
+        totalAkhir,
+        totalAkhirL: akhirL,
+        totalAkhirP: akhirP,
+        akhirList,
+        netChange,
         tingkatCounts,
-        totalAktif,
-        totalAktifL,
-        totalAktifP,
+        totalAktif: totalAkhir,
+        totalAktifL: akhirL,
+        totalAktifP: akhirP,
       };
     });
-  }, [academicMonths, students, activeStudentsGrade1to6, startYear]);
+  }, [academicMonths, eligibleStudentsForTP, startYear]);
 
   // Current selected month's specific statistics
   const currentMonthData = useMemo(() => {
     return periodicMonthlyStats.find(p => p.month.key === selectedMonthKey) || periodicMonthlyStats[0];
   }, [periodicMonthlyStats, selectedMonthKey]);
 
-  // Breakdown Jumlah Siswa di Rombel for the active academic year
+  // Breakdown Jumlah Siswa di Rombel for the selected month
   const rombelStats: MonthlyRombelStat[] = useMemo(() => {
-    const total = activeStudentsGrade1to6.length;
+    const monthStudents = currentMonthData.akhirList;
+    const total = monthStudents.length;
     return availableClasses.map(rombel => {
-      const inRombel = activeStudentsGrade1to6.filter(s => s.kelasSekarang === rombel);
+      const inRombel = monthStudents.filter(s => s.kelasSekarang === rombel);
       const jmlL = inRombel.filter(s => s.jenisKelamin === 'L').length;
       const jmlP = inRombel.filter(s => s.jenisKelamin === 'P').length;
       const rombelTotal = inRombel.length;
@@ -294,7 +381,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
       if (a.tingkat !== b.tingkat) return a.tingkat - b.tingkat;
       return a.rombel.localeCompare(b.rombel, undefined, { numeric: true });
     });
-  }, [availableClasses, activeStudentsGrade1to6, schoolProfile.waliKelasMap]);
+  }, [availableClasses, currentMonthData.akhirList, schoolProfile.waliKelasMap]);
 
   // Sembunyikan kelas yang tidak ada siswa (0 siswa) secara default
   const [hideEmptyRombel, setHideEmptyRombel] = useState<boolean>(true);
@@ -317,11 +404,12 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
     return rombelStats.filter(r => r.total > 0).length;
   }, [rombelStats]);
 
-  // Breakdown Total Siswa di Setiap Tingkat (Tingkat 1 - 6)
+  // Breakdown Total Siswa di Setiap Tingkat (Tingkat 1 - 6) for the selected month
   const tingkatStats: MonthlyTingkatStat[] = useMemo(() => {
-    const totalAll = activeStudentsGrade1to6.length;
+    const monthStudents = currentMonthData.akhirList;
+    const totalAll = monthStudents.length;
     return [1, 2, 3, 4, 5, 6].map(tingkat => {
-      const inTingkat = activeStudentsGrade1to6.filter(s => getTingkatKelasNumber(s.kelasSekarang) === tingkat);
+      const inTingkat = monthStudents.filter(s => getTingkatKelasNumber(s.kelasSekarang) === tingkat);
       const jmlL = inTingkat.filter(s => s.jenisKelamin === 'L').length;
       const jmlP = inTingkat.filter(s => s.jenisKelamin === 'P').length;
       const count = inTingkat.length;
@@ -337,7 +425,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
         rombels,
       };
     });
-  }, [activeStudentsGrade1to6, availableClasses]);
+  }, [currentMonthData.akhirList, availableClasses]);
 
   // Export Monthly Summary to Excel (.xlsx)
   const handleExportMonthlyStatsExcel = () => {
@@ -359,17 +447,22 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
         'Siswa Masuk (P)', 
         'Total Masuk',
         'Siswa Mutasi Keluar (L)', 
-        'Siswa Mutasi Keluar (P)', 
-        'Total Mutasi',
+        'Siswa Awal Bulan',
+        'Siswa Masuk (L)', 
+        'Siswa Masuk (P)', 
+        'Total Masuk (+)',
+        'Mutasi Keluar (L)', 
+        'Mutasi Keluar (P)', 
+        'Total Mutasi (-)',
         'Tingkat 1',
         'Tingkat 2',
         'Tingkat 3',
         'Tingkat 4',
         'Tingkat 5',
         'Tingkat 6',
-        'Total Siswa (L)',
-        'Total Siswa (P)',
-        'Total Siswa Aktif'
+        'Akhir (L)',
+        'Akhir (P)',
+        'Total Siswa Akhir (=)'
       ],
     ];
 
@@ -379,6 +472,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
         p.month.monthName,
         p.month.year,
         p.month.semester,
+        p.totalAwal,
         p.masukL,
         p.masukP,
         p.masukCount,
@@ -391,9 +485,9 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
         p.tingkatCounts[4].total,
         p.tingkatCounts[5].total,
         p.tingkatCounts[6].total,
-        p.totalAktifL,
-        p.totalAktifP,
-        p.totalAktif,
+        p.totalAkhirL,
+        p.totalAkhirP,
+        p.totalAkhir,
       ]);
     });
 
@@ -425,12 +519,12 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
     // Add total row
     rombelSheetData.push([
       '',
-      'TOTAL KESELURUHAN SISWA AKTIF',
+      `TOTAL SISWA AKTIF (${selectedMonthInfo.fullName.toUpperCase()})`,
       '-',
       '-',
-      activeStudentsGrade1to6.filter(s => s.jenisKelamin === 'L').length,
-      activeStudentsGrade1to6.filter(s => s.jenisKelamin === 'P').length,
-      activeStudentsGrade1to6.length,
+      currentMonthData.totalAkhirL,
+      currentMonthData.totalAkhirP,
+      currentMonthData.totalAkhir,
       '100%',
     ]);
 
@@ -500,16 +594,18 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
           <div className="flex flex-wrap items-center gap-3">
             <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              Bulan Berjalan: <strong>{selectedMonthInfo.fullName}</strong>
+              Bulan Terpilih: <strong>{selectedMonthInfo.fullName}</strong>
             </span>
             <span className="text-slate-400">•</span>
-            <span>Total Siswa: <strong className="text-blue-700 dark:text-blue-400">{activeStudentsGrade1to6.length}</strong></span>
+            <span>Awal: <strong className="text-slate-700 dark:text-slate-300">{currentMonthData.totalAwal}</strong></span>
             <span className="text-slate-400">•</span>
-            <span>Jumlah Rombel: <strong className="text-amber-600 dark:text-amber-400">{activeRombelsCount}</strong></span>
+            <span>Masuk: <strong className="text-emerald-600 dark:text-emerald-400">+{currentMonthData.masukCount}</strong></span>
             <span className="text-slate-400">•</span>
-            <span>Siswa Masuk: <strong className="text-emerald-600 dark:text-emerald-400">+{currentMonthData.masukCount}</strong></span>
+            <span>Mutasi: <strong className="text-orange-600 dark:text-orange-400">-{currentMonthData.mutasiCount}</strong></span>
             <span className="text-slate-400">•</span>
-            <span>Siswa Mutasi: <strong className="text-orange-600 dark:text-orange-400">-{currentMonthData.mutasiCount}</strong></span>
+            <span>Total Akhir: <strong className="text-blue-700 dark:text-blue-400">{currentMonthData.totalAkhir} Siswa</strong></span>
+            <span className="text-slate-400">•</span>
+            <span>Rombel Aktif: <strong className="text-amber-600 dark:text-amber-400">{activeRombelsCount}</strong></span>
           </div>
 
           <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
@@ -606,6 +702,9 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                     <span className={cn("text-xs font-black mt-0.5", isSelected ? "text-amber-300" : "")}>
                       {m.monthName}
                     </span>
+                    <span className={cn("text-[11px] font-extrabold mt-0.5 font-mono", isSelected ? "text-white" : "text-blue-700 dark:text-blue-400")}>
+                      {pStat?.totalAkhir || 0} Siswa
+                    </span>
                     
                     {/* Badge Mutasi/Masuk */}
                     <div className="flex items-center gap-1 mt-1 text-[9px] font-mono">
@@ -623,7 +722,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                           )}
                         </>
                       ) : (
-                        <span className="opacity-40">-</span>
+                        <span className="opacity-40 text-[10px]">tetap</span>
                       )}
                     </div>
                   </button>
@@ -634,22 +733,58 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
 
           {/* VIEW MODE 1: DETAIL BULAN TERPILIH */}
           {viewMode === 'detail-bulan' && (
-            <div className="space-y-5">
+            <div className="space-y-4">
+              {/* Formula Callout Banner: Keadaan Awal + Masuk - Mutasi = Akhir */}
+              <div className="p-3.5 rounded-xl border border-blue-200 dark:border-blue-900 bg-linear-to-r from-blue-50/90 via-indigo-50/70 to-slate-50 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-slate-900 text-xs text-blue-950 dark:text-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-black shrink-0 text-sm shadow-xs">
+                    Σ
+                  </div>
+                  <div>
+                    <div className="font-extrabold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                      <span>Perubahan Siswa Bulan {selectedMonthInfo.fullName}</span>
+                      <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">
+                        (Awal + Masuk - Mutasi Keluar = Akhir)
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] font-mono">
+                      <span className="px-2 py-0.5 bg-white dark:bg-slate-800 rounded border border-slate-300 dark:border-slate-700 font-bold text-slate-800 dark:text-slate-200">
+                        Awal: {currentMonthData.totalAwal}
+                      </span>
+                      <span className="font-bold text-slate-400">+</span>
+                      <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/80 rounded border border-emerald-300 dark:border-emerald-800 font-bold text-emerald-800 dark:text-emerald-300">
+                        Masuk: +{currentMonthData.masukCount}
+                      </span>
+                      <span className="font-bold text-slate-400">-</span>
+                      <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-950/80 rounded border border-orange-300 dark:border-orange-800 font-bold text-orange-800 dark:text-orange-300">
+                        Mutasi Keluar: -{currentMonthData.mutasiCount}
+                      </span>
+                      <span className="font-bold text-slate-400">=</span>
+                      <span className="px-2.5 py-0.5 bg-[#003399] text-white rounded font-black shadow-2xs">
+                        Keadaan Akhir: {currentMonthData.totalAkhir} Siswa
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 self-end sm:self-auto font-medium">
+                  Net Perubahan: <strong className={cn(currentMonthData.netChange > 0 ? "text-emerald-600 font-bold" : currentMonthData.netChange < 0 ? "text-orange-600 font-bold" : "text-slate-600")}>{currentMonthData.netChange > 0 ? `+${currentMonthData.netChange}` : currentMonthData.netChange} Siswa</strong>
+                </div>
+              </div>
+
               {/* 4 KPI Highlight Cards for the Selected Month */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {/* KPI 1: Total Siswa Aktif */}
+                {/* KPI 1: Keadaan Siswa Akhir */}
                 <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-linear-to-br from-blue-50/60 to-white dark:from-slate-800/60 dark:to-slate-900 shadow-2xs">
                   <div className="flex items-center justify-between text-slate-500">
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Total Siswa Aktif</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider">Keadaan Siswa Akhir</span>
                     <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   </div>
                   <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1">
-                    {currentMonthData.totalAktif} <span className="text-xs font-normal text-slate-500">Siswa</span>
+                    {currentMonthData.totalAkhir} <span className="text-xs font-normal text-slate-500">Siswa Aktif</span>
                   </p>
-                  <div className="flex items-center gap-2 mt-1 text-[11px] font-semibold text-slate-500">
-                    <span className="text-blue-600 dark:text-blue-400">{currentMonthData.totalAktifL} L</span>
-                    <span>•</span>
-                    <span className="text-pink-600 dark:text-pink-400">{currentMonthData.totalAktifP} P</span>
+                  <div className="flex items-center justify-between mt-1 text-[11px] font-semibold text-slate-500">
+                    <span className="text-blue-600 dark:text-blue-400">{currentMonthData.totalAkhirL} L • {currentMonthData.totalAkhirP} P</span>
+                    <span className="text-slate-600 dark:text-slate-400 font-mono text-[10px]">Awal: {currentMonthData.totalAwal}</span>
                   </div>
                 </div>
 
@@ -711,7 +846,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                     {activeRombelsCount} <span className="text-xs font-normal text-slate-500">Kelas Aktif</span>
                   </p>
                   <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500 font-semibold">
-                    <span>Rata-rata: {activeRombelsCount > 0 ? Math.round(activeStudentsGrade1to6.length / activeRombelsCount) : 0} siswa/kelas</span>
+                    <span>Rata-rata: {activeRombelsCount > 0 ? Math.round(currentMonthData.totalAkhir / activeRombelsCount) : 0} siswa/kelas</span>
                     {emptyRombelCount > 0 && hideEmptyRombel ? (
                       <span className="text-amber-600 font-medium">({emptyRombelCount} kelas 0)</span>
                     ) : (
@@ -754,7 +889,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                       <span>Rekapitulasi Total Siswa di Setiap Tingkat Kelas ({selectedMonthInfo.fullName})</span>
                     </h4>
                     <span className="text-xs text-slate-500 font-medium">
-                      Total: <strong>{activeStudentsGrade1to6.length}</strong> Siswa Aktif
+                      Total: <strong>{currentMonthData.totalAkhir}</strong> Siswa Aktif
                     </span>
                   </div>
 
@@ -804,7 +939,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                           'bg-amber-500',
                           'bg-rose-500'
                         ];
-                        const width = activeStudentsGrade1to6.length > 0 ? (ts.total / activeStudentsGrade1to6.length) * 100 : 0;
+                        const width = currentMonthData.totalAkhir > 0 ? (ts.total / currentMonthData.totalAkhir) * 100 : 0;
                         if (width <= 0) return null;
                         return (
                           <div 
@@ -928,15 +1063,15 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                       </tbody>
                       <tfoot>
                         <tr className="bg-slate-50 dark:bg-slate-800/80 font-black border-t-2 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100">
-                          <td colSpan={4} className="py-2.5 px-3 text-right">TOTAL KESELURUHAN SISWA AKTIF:</td>
+                          <td colSpan={4} className="py-2.5 px-3 text-right">TOTAL SISWA AKTIF ({selectedMonthInfo.fullName.toUpperCase()}):</td>
                           <td className="py-2.5 px-3 text-center text-blue-600 dark:text-blue-400 font-black">
-                            {activeStudentsGrade1to6.filter(s => s.jenisKelamin === 'L').length}
+                            {currentMonthData.totalAkhirL}
                           </td>
                           <td className="py-2.5 px-3 text-center text-pink-600 dark:text-pink-400 font-black">
-                            {activeStudentsGrade1to6.filter(s => s.jenisKelamin === 'P').length}
+                            {currentMonthData.totalAkhirP}
                           </td>
                           <td className="py-2.5 px-3 text-center text-[#003399] dark:text-amber-300 font-black text-sm">
-                            {activeStudentsGrade1to6.length}
+                            {currentMonthData.totalAkhir}
                           </td>
                           <td className="py-2.5 px-3 text-center">100%</td>
                           <td></td>
@@ -1133,23 +1268,27 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                   <thead>
                     <tr className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
                       <th className="py-2.5 px-3 font-bold text-center w-10">No</th>
-                      <th className="py-2.5 px-3 font-bold">Bulan</th>
+                      <th className="py-2.5 px-3 font-bold">Bulan & Tahun</th>
                       <th className="py-2.5 px-2 font-bold text-center">Sem.</th>
+                      <th className="py-2.5 px-2 font-bold text-center bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                        Siswa Awal
+                      </th>
                       <th className="py-2.5 px-2 font-bold text-center bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300">
-                        Masuk
+                        Masuk (+)
                       </th>
                       <th className="py-2.5 px-2 font-bold text-center bg-orange-50 dark:bg-orange-950/40 text-orange-800 dark:text-orange-300">
-                        Mutasi
+                        Mutasi (-)
                       </th>
-                      <th className="py-2.5 px-2 font-bold text-center">Tingkat 1</th>
-                      <th className="py-2.5 px-2 font-bold text-center">Tingkat 2</th>
-                      <th className="py-2.5 px-2 font-bold text-center">Tingkat 3</th>
-                      <th className="py-2.5 px-2 font-bold text-center">Tingkat 4</th>
-                      <th className="py-2.5 px-2 font-bold text-center">Tingkat 5</th>
-                      <th className="py-2.5 px-2 font-bold text-center">Tingkat 6</th>
                       <th className="py-2.5 px-3 font-bold text-center bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-300">
-                        Total Siswa
+                        Siswa Akhir (=)
                       </th>
+                      <th className="py-2.5 px-2 font-bold text-center">T1</th>
+                      <th className="py-2.5 px-2 font-bold text-center">T2</th>
+                      <th className="py-2.5 px-2 font-bold text-center">T3</th>
+                      <th className="py-2.5 px-2 font-bold text-center">T4</th>
+                      <th className="py-2.5 px-2 font-bold text-center">T5</th>
+                      <th className="py-2.5 px-2 font-bold text-center">T6</th>
+                      <th className="py-2.5 px-2 font-bold text-center">L / P</th>
                       <th className="py-2.5 px-2 font-bold text-center w-16">Detail</th>
                     </tr>
                   </thead>
@@ -1167,12 +1306,17 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                           <td className="py-2 px-3 text-center text-slate-400 font-mono">{idx + 1}</td>
                           <td className="py-2 px-3 font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                             {p.month.isCurrent && (
-                              <span className="w-2 h-2 rounded-full bg-emerald-500" title="Bulan Berjalan" />
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Bulan Berjalan" />
                             )}
                             <span>{p.month.monthName} {p.month.year}</span>
                           </td>
                           <td className="py-2 px-2 text-center text-slate-500">{p.month.semester}</td>
                           
+                          {/* Siswa Awal */}
+                          <td className="py-2 px-2 text-center font-mono font-semibold text-slate-700 dark:text-slate-300 bg-slate-50/50 dark:bg-slate-800/30">
+                            {p.totalAwal}
+                          </td>
+
                           {/* Masuk */}
                           <td className="py-2 px-2 text-center font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/20">
                             {p.masukCount > 0 ? `+${p.masukCount}` : '-'}
@@ -1183,6 +1327,11 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                             {p.mutasiCount > 0 ? `-${p.mutasiCount}` : '-'}
                           </td>
 
+                          {/* Siswa Akhir */}
+                          <td className="py-2 px-3 text-center font-black text-blue-700 dark:text-blue-300 bg-blue-50/40 dark:bg-blue-950/30 font-mono">
+                            {p.totalAkhir}
+                          </td>
+
                           {/* Tingkat 1 to 6 */}
                           <td className="py-2 px-2 text-center font-mono">{p.tingkatCounts[1].total}</td>
                           <td className="py-2 px-2 text-center font-mono">{p.tingkatCounts[2].total}</td>
@@ -1191,9 +1340,9 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                           <td className="py-2 px-2 text-center font-mono">{p.tingkatCounts[5].total}</td>
                           <td className="py-2 px-2 text-center font-mono">{p.tingkatCounts[6].total}</td>
 
-                          {/* Total Siswa */}
-                          <td className="py-2 px-3 text-center font-black text-blue-700 dark:text-blue-300 bg-blue-50/40 dark:bg-blue-950/30 font-mono">
-                            {p.totalAktif}
+                          {/* L / P breakdown */}
+                          <td className="py-2 px-2 text-center text-[11px] font-mono text-slate-600 dark:text-slate-400">
+                            {p.totalAkhirL} / {p.totalAkhirP}
                           </td>
 
                           <td className="py-2 px-2 text-center">
@@ -1214,18 +1363,18 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                   </tbody>
                   <tfoot>
                     <tr className="bg-slate-100 dark:bg-slate-800 font-black border-t-2 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100">
-                      <td colSpan={3} className="py-2.5 px-3 text-right">TOTAL BULAN BERJALAN:</td>
-                      <td className="py-2.5 px-2 text-center text-emerald-600">
+                      <td colSpan={4} className="py-2.5 px-3 text-right">TOTAL GERAKAN 1 TAHUN:</td>
+                      <td className="py-2.5 px-2 text-center text-emerald-600 font-black">
                         +{periodicMonthlyStats.reduce((acc, curr) => acc + curr.masukCount, 0)}
                       </td>
-                      <td className="py-2.5 px-2 text-center text-orange-600">
+                      <td className="py-2.5 px-2 text-center text-orange-600 font-black">
                         -{periodicMonthlyStats.reduce((acc, curr) => acc + curr.mutasiCount, 0)}
                       </td>
-                      <td colSpan={6} className="py-2.5 px-2 text-center text-slate-500 font-normal">
-                        Rekapitulasi 12 Bulan Tahun Pelajaran {activeTP}
-                      </td>
                       <td className="py-2.5 px-3 text-center text-blue-700 dark:text-blue-300 font-black text-sm">
-                        {activeStudentsGrade1to6.length}
+                        {currentMonthData.totalAkhir}
+                      </td>
+                      <td colSpan={7} className="py-2.5 px-2 text-center text-slate-500 font-normal">
+                        Keadaan Terakhir Bulan {currentMonthData.month.monthName} {currentMonthData.month.year} ({currentMonthData.totalAkhir} Siswa Aktif)
                       </td>
                       <td></td>
                     </tr>
