@@ -30,14 +30,17 @@ import {
   Clock,
   Trash2,
   AlertCircle,
-  Check
+  Check,
+  Coins,
+  PieChart
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useSchool } from '../../context/SchoolContext';
 import { Student, Gender, JenisBantuan, BantuanRecord } from '../../types';
-import { cn, formatIndonesianDate } from '../../lib/utils';
+import { cn, formatIndonesianDate, formatCurrencyIDR } from '../../lib/utils';
 import { KopSuratHeader } from '../layout/KopSuratHeader';
 import { RingkasanStatistikBantuan } from '../analytics/RingkasanStatistikBantuan';
+import { RingkasanAkumulasiBantuan, parseNominalToNumber } from '../analytics/RingkasanAkumulasiBantuan';
 
 interface PenerimaBantuanViewProps {
   onEditStudent: (student: Student, initialTab?: 'pribadi' | 'alamat' | 'ortu' | 'kesehatan' | 'masuk' | 'bantuan') => void;
@@ -64,6 +67,9 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
   const [filterTahap, setFilterTahap] = useState<string>('ALL');
   const [sortBy, setSortBy] = useState<'nama' | 'kelas' | 'jenis'>('nama');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  // Mode Tampilan Ringkasan Statistik & Anggaran
+  const [statsViewMode, setStatsViewMode] = useState<'all' | 'budget' | 'detail'>('all');
 
   // Modals state
   const [isAddBantuanModalOpen, setIsAddBantuanModalOpen] = useState(false);
@@ -287,9 +293,21 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
 
     const tahapCounts: Record<string, number> = {};
 
+    let totalNominalDana = 0;
+    let totalDanaCair = 0;
+
     recipientsInSelectedTP.forEach(s => {
       const records = getStudentBantuanRecords(s, selectedTP);
       const types = getStudentBantuanTypes(s, selectedTP);
+
+      // Accumulate nominal
+      records.forEach(r => {
+        const nom = parseNominalToNumber(r.nominal);
+        totalNominalDana += nom;
+        if (r.statusPencairan === 'Sudah Cair' || r.tanggalMenerima) {
+          totalDanaCair += nom;
+        }
+      });
 
       if (types.includes('Penerima PIP')) countPIP++;
       if (types.includes('Baznas')) countBaznas++;
@@ -334,6 +352,8 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
       persenP: totalPenerima > 0 ? Math.round((totalP / totalPenerima) * 100) : 0,
       kelasCounts,
       tahapCounts,
+      totalNominalDana,
+      totalDanaCair,
     };
   }, [recipientsInSelectedTP, activeStudentsInSchool, selectedTP]);
 
@@ -486,6 +506,8 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
         { 'Kategori': 'Penerima Bantuan Sekolah', 'Jumlah': stats.countSekolah },
         { 'Kategori': 'Penerima Bantuan dari Desa', 'Jumlah': stats.countDesa },
         { 'Kategori': 'Penerima Bantuan Lainnya', 'Jumlah': stats.countLainnya },
+        { 'Kategori': 'Total Akumulasi Dana Bantuan', 'Jumlah': formatCurrencyIDR(stats.totalNominalDana) },
+        { 'Kategori': 'Total Dana Realisasi (Cair)', 'Jumlah': formatCurrencyIDR(stats.totalDanaCair) },
         { 'Kategori': 'Laki-laki', 'Jumlah': stats.totalL },
         { 'Kategori': 'Perempuan', 'Jumlah': stats.totalP },
       ];
@@ -645,17 +667,97 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. KOMPONEN RINGKASAN STATISTIK PENERIMA BANTUAN */}
+      {/* 2. KOMPONEN RINGKASAN STATISTIK & PEMANTAUAN ANGGARAN BANTUAN */}
       {/* ========================================================================= */}
-      <RingkasanStatistikBantuan
-        stats={stats}
-        selectedTP={selectedTP}
-        activeTP={activeTP}
-        onFilterJenis={(jenis) => setFilterJenis(jenis)}
-        activeFilterJenis={filterJenis}
-        onFilterTahap={(tahap) => setFilterTahap(tahap)}
-        activeFilterTahap={filterTahap}
-      />
+      <div className="space-y-4">
+        {/* Kontrol Navigasi Tampilan Ringkasan */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <span className="p-1.5 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
+              <PieChart className="w-4 h-4" />
+            </span>
+            <div>
+              <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 block">
+                Mode Tampilan Statistik & Analisis:
+              </span>
+              <span className="text-[11px] text-slate-400">
+                Pilih fokus tampilan statistik yang ingin ditampilkan di dashboard
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl shrink-0 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setStatsViewMode('all')}
+              className={cn(
+                "px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5",
+                statsViewMode === 'all'
+                  ? "bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 shadow-2xs font-black"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+              )}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Semua Ringkasan</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatsViewMode('budget')}
+              className={cn(
+                "px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5",
+                statsViewMode === 'budget'
+                  ? "bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 shadow-2xs font-black"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+              )}
+            >
+              <Coins className="w-3.5 h-3.5 text-amber-500" />
+              <span>Akumulasi Anggaran Multi-Tahun</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatsViewMode('detail')}
+              className={cn(
+                "px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5",
+                statsViewMode === 'detail'
+                  ? "bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 shadow-2xs font-black"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+              )}
+            >
+              <School className="w-3.5 h-3.5 text-indigo-500" />
+              <span>Detail Kelas & Tahap (TP {selectedTP})</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 2A. KOMPONEN RINGKASAN STATISTIK AKUMULASI ANGGARAN & SISWA PER TAHUN */}
+        {(statsViewMode === 'all' || statsViewMode === 'budget') && (
+          <RingkasanAkumulasiBantuan
+            students={students}
+            daftarTahunPelajaran={schoolProfile?.daftarTahunPelajaran}
+            activeTP={activeTP}
+            selectedTP={selectedTP}
+            onSelectTP={(tp) => {
+              setSelectedTP(tp);
+              setFilterTahap('ALL');
+            }}
+            onFilterJenis={(jenis) => setFilterJenis(jenis)}
+            activeFilterJenis={filterJenis}
+          />
+        )}
+
+        {/* 2B. KOMPONEN RINGKASAN DETAIL KELAS & TERMIN TAHUN TERPILIH */}
+        {(statsViewMode === 'all' || statsViewMode === 'detail') && (
+          <RingkasanStatistikBantuan
+            stats={stats}
+            selectedTP={selectedTP}
+            activeTP={activeTP}
+            onFilterJenis={(jenis) => setFilterJenis(jenis)}
+            activeFilterJenis={filterJenis}
+            onFilterTahap={(tahap) => setFilterTahap(tahap)}
+            activeFilterTahap={filterTahap}
+          />
+        )}
+      </div>
 
       {/* ========================================================================= */}
       {/* 3. TOOLBAR FILTER & SEARCH */}
@@ -1516,23 +1618,27 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                 </p>
               </div>
 
-              {/* Ringkasan Statistik */}
-              <div className="grid grid-cols-4 gap-2 text-center text-xs">
+              {/* Ringkasan Statistik Anggaran & Penerima */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs">
                 <div className="p-2 border border-slate-300 rounded-lg">
                   <span className="text-[10px] text-slate-500 block">Total Penerima</span>
                   <span className="font-bold text-sm">{stats.totalPenerima} Siswa</span>
                 </div>
                 <div className="p-2 border border-slate-300 rounded-lg">
-                  <span className="text-[10px] text-slate-500 block">Penerima PIP</span>
-                  <span className="font-bold text-sm">{stats.countPIP} Siswa</span>
+                  <span className="text-[10px] text-slate-500 block">Total Alokasi Dana</span>
+                  <span className="font-bold text-sm text-blue-800">{formatCurrencyIDR(stats.totalNominalDana)}</span>
                 </div>
                 <div className="p-2 border border-slate-300 rounded-lg">
-                  <span className="text-[10px] text-slate-500 block">Baznas & Desa</span>
-                  <span className="font-bold text-sm">{stats.countBaznas + stats.countDesa} Siswa</span>
+                  <span className="text-[10px] text-slate-500 block">Realisasi (Cair)</span>
+                  <span className="font-bold text-sm text-emerald-700">{formatCurrencyIDR(stats.totalDanaCair)}</span>
                 </div>
                 <div className="p-2 border border-slate-300 rounded-lg">
-                  <span className="text-[10px] text-slate-500 block">Sekolah & Lainnya</span>
-                  <span className="font-bold text-sm">{stats.countSekolah + stats.countLainnya} Siswa</span>
+                  <span className="text-[10px] text-slate-500 block">PIP & Baznas</span>
+                  <span className="font-bold text-sm">{stats.countPIP + stats.countBaznas} Siswa</span>
+                </div>
+                <div className="p-2 border border-slate-300 rounded-lg col-span-2 sm:col-span-1">
+                  <span className="text-[10px] text-slate-500 block">Sekolah, Desa, Lain</span>
+                  <span className="font-bold text-sm">{stats.countSekolah + stats.countDesa + stats.countLainnya} Siswa</span>
                 </div>
               </div>
 
