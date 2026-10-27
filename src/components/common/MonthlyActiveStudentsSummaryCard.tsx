@@ -4,6 +4,7 @@ import {
   Users, 
   UserPlus, 
   UserMinus, 
+  UserX,
   Layers, 
   ChevronDown, 
   ChevronUp, 
@@ -117,8 +118,8 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
   // View mode: 'detail-bulan' | 'matriks-periodik'
   const [viewMode, setViewMode] = useState<'detail-bulan' | 'matriks-periodik'>('detail-bulan');
 
-  // Sub-tab under detail-bulan: 'tingkat' | 'rombel' | 'siswa-masuk' | 'siswa-mutasi'
-  const [activeSubSection, setActiveSubSection] = useState<'tingkat' | 'rombel' | 'siswa-masuk' | 'siswa-mutasi'>('tingkat');
+  // Sub-tab under detail-bulan: 'tingkat' | 'rombel' | 'siswa-masuk' | 'siswa-mutasi' | 'siswa-meninggal'
+  const [activeSubSection, setActiveSubSection] = useState<'tingkat' | 'rombel' | 'siswa-masuk' | 'siswa-mutasi' | 'siswa-meninggal'>('tingkat');
 
   // Generate 12 months for the Indonesian Academic Year (Juli startYear to Juni endYear)
   const startYear = getAcademicYearStart(activeTP);
@@ -199,8 +200,27 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
     return `${estimatedYear}-07`;
   };
 
-  // Helper to extract student's mutation out year-month (YYYY-MM)
+  // Helper to extract student's death year-month (YYYY-MM)
+  const getStudentMeninggalMonthKey = (s: Student): string | null => {
+    if (s.status !== 'Meninggal') return null;
+    const tgl = (s as any).tanggalMeninggal || s.mutasi?.tglMeninggalkan || s.mutasi?.dikeluarkanTanggal;
+    if (tgl && tgl.trim().length >= 7) {
+      const match = tgl.trim().match(/^(\d{4}-\d{2})/);
+      if (match) return match[1];
+    }
+    if (s.updatedAt && s.updatedAt.length >= 7) {
+      const match = s.updatedAt.match(/^(\d{4}-\d{2})/);
+      if (match) return match[1];
+    }
+    return `${startYear}-07`;
+  };
+
+  // Helper to extract student's mutation out year-month (YYYY-MM) (EXCLUDING Meninggal)
   const getStudentMutationMonthKey = (s: Student): string | null => {
+    // Siswa berstatus Meninggal TIDAK dimasukkan sebagai mutasi keluar!
+    if (s.status === 'Meninggal') {
+      return null;
+    }
     const tgl = s.mutasi?.tglMeninggalkan || s.mutasi?.dikeluarkanTanggal;
     if (tgl && tgl.trim().length >= 7) {
       const match = tgl.trim().match(/^(\d{4}-\d{2})/);
@@ -213,7 +233,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
       }
       return `${startYear}-07`;
     }
-    if (s.status === 'Drop Out' || s.status === 'Meninggal') {
+    if (s.status === 'Drop Out') {
       if (s.updatedAt && s.updatedAt.length >= 7) {
         const match = s.updatedAt.match(/^(\d{4}-\d{2})/);
         if (match) return match[1];
@@ -235,6 +255,11 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
       if (mutKey && mutKey < `${startYear}-07`) {
         return false;
       }
+      // If student passed away BEFORE the academic year started (before startYear-07), exclude
+      const menKey = getStudentMeninggalMonthKey(p);
+      if (menKey && menKey < `${startYear}-07`) {
+        return false;
+      }
       // If student admitted AFTER this academic year ended (after endYear-06), exclude
       const admKey = getStudentAdmissionMonthKey(p);
       if (admKey > `${endYear}-06`) {
@@ -244,17 +269,19 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
     });
   }, [projectedStudents, startYear, endYear]);
 
-  // Monthly stats for each of the 12 academic months (Full periodic calculation based on mutasi masuk & mutasi keluar)
+  // Monthly stats for each of the 12 academic months (Full periodic calculation: Masuk, Mutasi Keluar, & Meninggal)
   const periodicMonthlyStats = useMemo(() => {
     const startOfJulyKey = `${startYear}-07`;
 
-    // Prior to Month 0 (Juli startYear), students already admitted and not mutated out:
+    // Prior to Month 0 (Juli startYear), students already admitted and neither mutated nor deceased before July:
     let runningActiveList = eligibleStudentsForTP.filter(s => {
       const admKey = getStudentAdmissionMonthKey(s);
       const mutKey = getStudentMutationMonthKey(s);
+      const menKey = getStudentMeninggalMonthKey(s);
       const enteredBeforeJuly = admKey < startOfJulyKey;
       const notMutatedBeforeJuly = !mutKey || mutKey >= startOfJulyKey;
-      return enteredBeforeJuly && notMutatedBeforeJuly;
+      const notMeninggalBeforeJuly = !menKey || menKey >= startOfJulyKey;
+      return enteredBeforeJuly && notMutatedBeforeJuly && notMeninggalBeforeJuly;
     });
 
     return academicMonths.map((m) => {
@@ -272,7 +299,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
       const masukP = masukList.filter(s => s.jenisKelamin === 'P').length;
       const masukCount = masukList.length;
 
-      // Siswa Mutasi (Keluar) in this month
+      // Siswa Mutasi Keluar in this month (EXCLUDING Meninggal)
       const mutasiList = eligibleStudentsForTP.filter(s => {
         const mutKey = getStudentMutationMonthKey(s);
         return mutKey === m.key;
@@ -281,17 +308,27 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
       const mutasiP = mutasiList.filter(s => s.jenisKelamin === 'P').length;
       const mutasiCount = mutasiList.length;
 
-      // Siswa Akhir = Awal + Masuk - Mutasi Keluar
+      // Siswa Meninggal Dunia in this month (SEPARATE FROM MUTASI KELUAR)
+      const meninggalList = eligibleStudentsForTP.filter(s => {
+        const menKey = getStudentMeninggalMonthKey(s);
+        return menKey === m.key;
+      });
+      const meninggalL = meninggalList.filter(s => s.jenisKelamin === 'L').length;
+      const meninggalP = meninggalList.filter(s => s.jenisKelamin === 'P').length;
+      const meninggalCount = meninggalList.length;
+
+      // Siswa Akhir = Awal + Masuk - Mutasi Keluar - Meninggal
       const mutasiIds = new Set(mutasiList.map(s => s.id));
+      const meninggalIds = new Set(meninggalList.map(s => s.id));
       const akhirMap = new Map<string, typeof eligibleStudentsForTP[0]>();
 
       awalList.forEach(s => {
-        if (!mutasiIds.has(s.id)) {
+        if (!mutasiIds.has(s.id) && !meninggalIds.has(s.id)) {
           akhirMap.set(s.id, s);
         }
       });
       masukList.forEach(s => {
-        if (!mutasiIds.has(s.id)) {
+        if (!mutasiIds.has(s.id) && !meninggalIds.has(s.id)) {
           akhirMap.set(s.id, s);
         }
       });
@@ -300,7 +337,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
       const akhirL = akhirList.filter(s => s.jenisKelamin === 'L').length;
       const akhirP = akhirList.filter(s => s.jenisKelamin === 'P').length;
       const totalAkhir = akhirList.length;
-      const netChange = masukCount - mutasiCount;
+      const netChange = masukCount - mutasiCount - meninggalCount;
 
       // Update runningActiveList for next month
       runningActiveList = akhirList;
@@ -338,6 +375,10 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
         mutasiCount,
         mutasiL,
         mutasiP,
+        meninggalList,
+        meninggalCount,
+        meninggalL,
+        meninggalP,
         totalAkhir,
         totalAkhirL: akhirL,
         totalAkhirP: akhirP,
@@ -443,10 +484,6 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
         'Bulan', 
         'Tahun', 
         'Semester', 
-        'Siswa Masuk (L)', 
-        'Siswa Masuk (P)', 
-        'Total Masuk',
-        'Siswa Mutasi Keluar (L)', 
         'Siswa Awal Bulan',
         'Siswa Masuk (L)', 
         'Siswa Masuk (P)', 
@@ -454,6 +491,9 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
         'Mutasi Keluar (L)', 
         'Mutasi Keluar (P)', 
         'Total Mutasi (-)',
+        'Siswa Meninggal (L)',
+        'Siswa Meninggal (P)',
+        'Total Meninggal (-)',
         'Tingkat 1',
         'Tingkat 2',
         'Tingkat 3',
@@ -479,6 +519,9 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
         p.mutasiL,
         p.mutasiP,
         p.mutasiCount,
+        p.meninggalL,
+        p.meninggalP,
+        p.meninggalCount,
         p.tingkatCounts[1].total,
         p.tingkatCounts[2].total,
         p.tingkatCounts[3].total,
@@ -602,6 +645,12 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
             <span>Masuk: <strong className="text-emerald-600 dark:text-emerald-400">+{currentMonthData.masukCount}</strong></span>
             <span className="text-slate-400">•</span>
             <span>Mutasi: <strong className="text-orange-600 dark:text-orange-400">-{currentMonthData.mutasiCount}</strong></span>
+            {currentMonthData.meninggalCount > 0 && (
+              <>
+                <span className="text-slate-400">•</span>
+                <span>Meninggal: <strong className="text-rose-600 dark:text-rose-400">-{currentMonthData.meninggalCount}</strong></span>
+              </>
+            )}
             <span className="text-slate-400">•</span>
             <span>Total Akhir: <strong className="text-blue-700 dark:text-blue-400">{currentMonthData.totalAkhir} Siswa</strong></span>
             <span className="text-slate-400">•</span>
@@ -676,7 +725,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
               {academicMonths.map((m) => {
                 const isSelected = m.key === selectedMonthKey;
                 const pStat = periodicMonthlyStats.find(p => p.month.key === m.key);
-                const hasMovement = (pStat?.masukCount || 0) > 0 || (pStat?.mutasiCount || 0) > 0;
+                const hasMovement = (pStat?.masukCount || 0) > 0 || (pStat?.mutasiCount || 0) > 0 || (pStat?.meninggalCount || 0) > 0;
 
                 return (
                   <button
@@ -706,7 +755,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                       {pStat?.totalAkhir || 0} Siswa
                     </span>
                     
-                    {/* Badge Mutasi/Masuk */}
+                    {/* Badge Mutasi/Masuk/Meninggal */}
                     <div className="flex items-center gap-1 mt-1 text-[9px] font-mono">
                       {hasMovement ? (
                         <>
@@ -718,6 +767,11 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                           {(pStat?.mutasiCount || 0) > 0 && (
                             <span className={cn("px-1 rounded font-bold", isSelected ? "bg-orange-400 text-slate-950" : "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300")}>
                               -{pStat?.mutasiCount}
+                            </span>
+                          )}
+                          {(pStat?.meninggalCount || 0) > 0 && (
+                            <span className={cn("px-1 rounded font-bold", isSelected ? "bg-rose-400 text-slate-950" : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300")} title="Meninggal Dunia">
+                              -{pStat?.meninggalCount}†
                             </span>
                           )}
                         </>
@@ -734,17 +788,17 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
           {/* VIEW MODE 1: DETAIL BULAN TERPILIH */}
           {viewMode === 'detail-bulan' && (
             <div className="space-y-4">
-              {/* Formula Callout Banner: Keadaan Awal + Masuk - Mutasi = Akhir */}
+              {/* Formula Callout Banner: Keadaan Awal + Masuk - Mutasi - Meninggal = Akhir */}
               <div className="p-3.5 rounded-xl border border-blue-200 dark:border-blue-900 bg-linear-to-r from-blue-50/90 via-indigo-50/70 to-slate-50 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-slate-900 text-xs text-blue-950 dark:text-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-black shrink-0 text-sm shadow-xs">
                     Σ
                   </div>
                   <div>
-                    <div className="font-extrabold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                    <div className="font-extrabold text-blue-900 dark:text-blue-100 flex items-center gap-2 flex-wrap">
                       <span>Perubahan Siswa Bulan {selectedMonthInfo.fullName}</span>
                       <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">
-                        (Awal + Masuk - Mutasi Keluar = Akhir)
+                        (Awal + Masuk - Mutasi Keluar - Meninggal = Akhir)
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] font-mono">
@@ -757,7 +811,11 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                       </span>
                       <span className="font-bold text-slate-400">-</span>
                       <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-950/80 rounded border border-orange-300 dark:border-orange-800 font-bold text-orange-800 dark:text-orange-300">
-                        Mutasi Keluar: -{currentMonthData.mutasiCount}
+                        Mutasi: -{currentMonthData.mutasiCount}
+                      </span>
+                      <span className="font-bold text-slate-400">-</span>
+                      <span className="px-2 py-0.5 bg-rose-100 dark:bg-rose-950/80 rounded border border-rose-300 dark:border-rose-800 font-bold text-rose-800 dark:text-rose-300" title="Siswa Meninggal dipisahkan dari Mutasi Keluar">
+                        Meninggal: -{currentMonthData.meninggalCount}
                       </span>
                       <span className="font-bold text-slate-400">=</span>
                       <span className="px-2.5 py-0.5 bg-[#003399] text-white rounded font-black shadow-2xs">
@@ -771,8 +829,8 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                 </div>
               </div>
 
-              {/* 4 KPI Highlight Cards for the Selected Month */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* 5 KPI Highlight Cards for the Selected Month (Termasuk Div Khusus Siswa Meninggal) */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 {/* KPI 1: Keadaan Siswa Akhir */}
                 <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-linear-to-br from-blue-50/60 to-white dark:from-slate-800/60 dark:to-slate-900 shadow-2xs">
                   <div className="flex items-center justify-between text-slate-500">
@@ -809,7 +867,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                   </div>
                 </div>
 
-                {/* KPI 3: Jumlah Siswa Mutasi */}
+                {/* KPI 3: Jumlah Siswa Mutasi Keluar */}
                 <div 
                   onClick={() => setActiveSubSection('siswa-mutasi')}
                   className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-linear-to-br from-orange-50/60 to-white dark:from-slate-800/60 dark:to-slate-900 shadow-2xs cursor-pointer hover:border-orange-300 transition-all group"
@@ -817,7 +875,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                 >
                   <div className="flex items-center justify-between text-slate-500">
                     <span className="text-[11px] font-bold uppercase tracking-wider group-hover:text-orange-700 transition-colors">
-                      Siswa Mutasi Keluar
+                      Mutasi Keluar
                     </span>
                     <UserMinus className="w-4 h-4 text-orange-600 dark:text-orange-400" />
                   </div>
@@ -830,7 +888,28 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                   </div>
                 </div>
 
-                {/* KPI 4: Jumlah Rombel */}
+                {/* KPI 4: Siswa Meninggal Dunia (DIV BARU SESUAI PERMINTAAN USER) */}
+                <div 
+                  onClick={() => setActiveSubSection('siswa-meninggal')}
+                  className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-linear-to-br from-rose-50/60 to-white dark:from-slate-800/60 dark:to-slate-900 shadow-2xs cursor-pointer hover:border-rose-300 transition-all group"
+                  title="Klik untuk melihat daftar siswa meninggal dunia pada bulan ini"
+                >
+                  <div className="flex items-center justify-between text-slate-500">
+                    <span className="text-[11px] font-bold uppercase tracking-wider group-hover:text-rose-700 transition-colors">
+                      Siswa Meninggal
+                    </span>
+                    <UserX className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                  </div>
+                  <p className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">
+                    -{currentMonthData.meninggalCount} <span className="text-xs font-normal text-slate-500">Siswa</span>
+                  </p>
+                  <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500 font-semibold">
+                    <span>{currentMonthData.meninggalL} L • {currentMonthData.meninggalP} P</span>
+                    <span className="text-rose-600 font-bold group-hover:underline">Lihat Rincian →</span>
+                  </div>
+                </div>
+
+                {/* KPI 5: Jumlah Rombel */}
                 <div 
                   onClick={() => setActiveSubSection('rombel')}
                   className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-linear-to-br from-amber-50/60 to-white dark:from-slate-800/60 dark:to-slate-900 shadow-2xs cursor-pointer hover:border-amber-300 transition-all group"
@@ -857,19 +936,20 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
               </div>
 
               {/* Sub-section Navigation Tabs */}
-              <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+              <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto scrollbar-thin">
                 {[
                   { id: 'tingkat', label: 'Total Siswa per Tingkat (1-6)', count: 6 },
                   { id: 'rombel', label: `Jumlah Siswa di Rombel (${activeRombelsCount})`, count: activeRombelsCount },
                   { id: 'siswa-masuk', label: `Siswa Masuk (${currentMonthData.masukCount})`, count: currentMonthData.masukCount },
-                  { id: 'siswa-mutasi', label: `Siswa Mutasi (${currentMonthData.mutasiCount})`, count: currentMonthData.mutasiCount },
+                  { id: 'siswa-mutasi', label: `Mutasi Keluar (${currentMonthData.mutasiCount})`, count: currentMonthData.mutasiCount },
+                  { id: 'siswa-meninggal', label: `Siswa Meninggal (${currentMonthData.meninggalCount})`, count: currentMonthData.meninggalCount },
                 ].map((item) => (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => setActiveSubSection(item.id as any)}
                     className={cn(
-                      "px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5",
+                      "px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0",
                       activeSubSection === item.id
                         ? "bg-[#003399] text-white shadow-xs"
                         : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900"
@@ -1247,6 +1327,104 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                   )}
                 </div>
               )}
+
+              {/* SECTION E: SISWA MENINGGAL DUNIA PADA BULAN INI (DIV BARU KHUSUS SISWA MENINGGAL) */}
+              {activeSubSection === 'siswa-meninggal' && (
+                <div className="space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <h4 className="text-xs font-extrabold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
+                        <UserX className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                        <span>Daftar Siswa Meninggal Dunia pada Bulan {selectedMonthInfo.fullName} ({currentMonthData.meninggalCount} Siswa)</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Siswa berstatus meninggal dipisahkan secara khusus dari mutasi keluar untuk akurasi buku induk & statistik resmi.
+                      </p>
+                    </div>
+                    <span className="text-xs text-slate-500">
+                      Laki-laki: <strong>{currentMonthData.meninggalL}</strong> • Perempuan: <strong>{currentMonthData.meninggalP}</strong>
+                    </span>
+                  </div>
+
+                  {currentMonthData.meninggalList.length === 0 ? (
+                    <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 text-xs text-slate-500">
+                      <UserX className="w-8 h-8 mx-auto mb-2 opacity-30 text-slate-400" />
+                      <p className="font-bold text-slate-700 dark:text-slate-300">Tidak ada catatan peserta didik meninggal dunia pada bulan {selectedMonthInfo.fullName}.</p>
+                      <p className="text-[11px] text-slate-400 mt-1">Data siswa yang meninggal dunia dicatat secara terpisah dan tidak digabungkan ke kategori mutasi keluar.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-rose-50/80 dark:bg-rose-950/40 text-slate-700 dark:text-slate-300 border-b border-rose-200 dark:border-rose-900/60">
+                            <th className="py-2.5 px-3 font-bold w-12 text-center">No</th>
+                            <th className="py-2.5 px-3 font-bold">Nama Lengkap</th>
+                            <th className="py-2.5 px-3 font-bold">NIS / NISN</th>
+                            <th className="py-2.5 px-3 font-bold text-center">JK</th>
+                            <th className="py-2.5 px-3 font-bold">Kelas Terakhir</th>
+                            <th className="py-2.5 px-3 font-bold">Tanggal Meninggal</th>
+                            <th className="py-2.5 px-3 font-bold">Penyebab / Keterangan</th>
+                            <th className="py-2.5 px-3 font-bold text-center w-20">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                          {currentMonthData.meninggalList.map((s, idx) => (
+                            <tr key={s.id} className="hover:bg-rose-50/30 dark:hover:bg-slate-800/40 transition-colors">
+                              <td className="py-2.5 px-3 text-center text-slate-400 font-mono">{idx + 1}</td>
+                              <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-slate-100">
+                                <div className="flex items-center gap-2">
+                                  <span>{s.namaLengkap}</span>
+                                  <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                                    Meninggal
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-400">
+                                {s.noInduk} / {s.nisn}
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <span className={cn(
+                                  "px-2 py-0.5 rounded font-black text-[10px]",
+                                  s.jenisKelamin === 'L' ? "bg-blue-100 text-blue-800" : "bg-pink-100 text-pink-800"
+                                )}>
+                                  {s.jenisKelamin}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                                {s.mutasi?.dariKelas || s.kelasSekarang}
+                              </td>
+                              <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 font-mono">
+                                {(s as any).tanggalMeninggal 
+                                  ? formatIndonesianDate((s as any).tanggalMeninggal) 
+                                  : (s.mutasi?.tglMeninggalkan 
+                                      ? formatIndonesianDate(s.mutasi.tglMeninggalkan) 
+                                      : (s.mutasi?.dikeluarkanTanggal 
+                                          ? formatIndonesianDate(s.mutasi.dikeluarkanTanggal) 
+                                          : (s.updatedAt ? formatIndonesianDate(s.updatedAt.split('T')[0]) : '-')))}
+                              </td>
+                              <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">
+                                {s.mutasi?.alasanPindah || s.kesehatan?.penyakitPernahDiderita || s.mutasi?.keterangan || 'Meninggal Dunia'}
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                {onSelectDetail && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onSelectDetail(s.id)}
+                                    className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-blue-600 cursor-pointer"
+                                    title="Lihat Detail Siswa"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -1259,7 +1437,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                   <span>Matriks Periodik Bulanan Siswa Aktif Selama 1 Tahun Pelajaran ({activeTP})</span>
                 </h4>
                 <span className="text-[11px] text-slate-500">
-                  Rekap pergerakan siswa masuk, mutasi, dan total siswa per tingkat
+                  Rekap pergerakan siswa masuk, mutasi keluar, meninggal, dan total siswa per tingkat
                 </span>
               </div>
 
@@ -1278,6 +1456,9 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                       </th>
                       <th className="py-2.5 px-2 font-bold text-center bg-orange-50 dark:bg-orange-950/40 text-orange-800 dark:text-orange-300">
                         Mutasi (-)
+                      </th>
+                      <th className="py-2.5 px-2 font-bold text-center bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300">
+                        Meninggal (-)
                       </th>
                       <th className="py-2.5 px-3 font-bold text-center bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-300">
                         Siswa Akhir (=)
@@ -1322,9 +1503,14 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                             {p.masukCount > 0 ? `+${p.masukCount}` : '-'}
                           </td>
 
-                          {/* Mutasi */}
+                          {/* Mutasi Keluar */}
                           <td className="py-2 px-2 text-center font-bold text-orange-600 dark:text-orange-400 bg-orange-50/30 dark:bg-orange-950/20">
                             {p.mutasiCount > 0 ? `-${p.mutasiCount}` : '-'}
+                          </td>
+
+                          {/* Meninggal Dunia */}
+                          <td className="py-2 px-2 text-center font-bold text-rose-600 dark:text-rose-400 bg-rose-50/30 dark:bg-rose-950/20">
+                            {p.meninggalCount > 0 ? `-${p.meninggalCount}` : '-'}
                           </td>
 
                           {/* Siswa Akhir */}
@@ -1369,6 +1555,9 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                       </td>
                       <td className="py-2.5 px-2 text-center text-orange-600 font-black">
                         -{periodicMonthlyStats.reduce((acc, curr) => acc + curr.mutasiCount, 0)}
+                      </td>
+                      <td className="py-2.5 px-2 text-center text-rose-600 font-black">
+                        -{periodicMonthlyStats.reduce((acc, curr) => acc + curr.meninggalCount, 0)}
                       </td>
                       <td className="py-2.5 px-3 text-center text-blue-700 dark:text-blue-300 font-black text-sm">
                         {currentMonthData.totalAkhir}
