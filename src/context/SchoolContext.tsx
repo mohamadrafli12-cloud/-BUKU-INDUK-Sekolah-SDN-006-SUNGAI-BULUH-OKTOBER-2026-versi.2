@@ -398,10 +398,20 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (Array.isArray(list)) {
           return list
             .filter((s: Student) => s && s.id && !deletedSet.has(s.id))
-            .map((s: Student) => ({
-              ...s,
-              diterimaDiKelas: sanitizeDiterimaDiKelas(s.diterimaDiKelas),
-            }));
+            .map((s: Student) => {
+              const init = initialStudents.find(i => i.id === s.id);
+              const mergedRiwayat = (s.riwayatBantuan && s.riwayatBantuan.length > 0)
+                ? s.riwayatBantuan
+                : (init?.riwayatBantuan || []);
+              return {
+                ...s,
+                diterimaDiKelas: sanitizeDiterimaDiKelas(s.diterimaDiKelas),
+                riwayatBantuan: mergedRiwayat.length > 0 ? mergedRiwayat : s.riwayatBantuan,
+                penerimaBantuan: s.penerimaBantuan || init?.penerimaBantuan,
+                jenisBantuanList: (s.jenisBantuanList && s.jenisBantuanList.length > 0) ? s.jenisBantuanList : init?.jenisBantuanList,
+                tahunBantuan: s.tahunBantuan || init?.tahunBantuan,
+              };
+            });
         }
       }
 

@@ -150,6 +150,28 @@ export const initialStudents: Student[] = [
         keterangan: 'Bantuan Komite Sekolah dan Pengadaan Seragam Merah Putih',
         statusPencairan: 'Sudah Cair',
         dibuatPada: '2026-09-02T10:15:00Z',
+      },
+      {
+        id: 'btn-001-3',
+        jenis: 'Penerima PIP',
+        tahunPelajaran: '2025/2026',
+        tahap: 'Tahap 2',
+        tanggalMenerima: '2025-09-14',
+        nominal: 'Rp 450.000 / tahun',
+        keterangan: 'SK PIP Kemdikbudristek No. 028/PIP-SD/2025',
+        statusPencairan: 'Sudah Cair',
+        dibuatPada: '2025-09-14T09:00:00Z',
+      },
+      {
+        id: 'btn-001-4',
+        jenis: 'Penerima PIP',
+        tahunPelajaran: '2024/2025',
+        tahap: 'Tahap 1',
+        tanggalMenerima: '2024-08-18',
+        nominal: 'Rp 450.000 / tahun',
+        keterangan: 'SK PIP Kemdikbudristek No. 019/PIP-SD/2024',
+        statusPencairan: 'Sudah Cair',
+        dibuatPada: '2024-08-18T08:30:00Z',
       }
     ],
     sttb: {
@@ -274,6 +296,30 @@ export const initialStudents: Student[] = [
     tanggalMenerimaBantuan: '2026-08-15',
     nominalBantuan: 'Rp 500.000 / tahun',
     keteranganBantuan: 'Beasiswa Dhuafa Baznas Kuansing',
+    riwayatBantuan: [
+      {
+        id: 'btn-002-1',
+        jenis: 'Baznas',
+        tahunPelajaran: '2026/2027',
+        tahap: 'Tahap 1',
+        tanggalMenerima: '2026-08-15',
+        nominal: 'Rp 500.000 / tahun',
+        keterangan: 'Beasiswa Dhuafa Baznas Kuansing Tahap 1',
+        statusPencairan: 'Sudah Cair',
+        dibuatPada: '2026-08-15T09:00:00Z',
+      },
+      {
+        id: 'btn-002-2',
+        jenis: 'Baznas',
+        tahunPelajaran: '2025/2026',
+        tahap: 'Tahap 1',
+        tanggalMenerima: '2025-08-20',
+        nominal: 'Rp 500.000 / tahun',
+        keterangan: 'Beasiswa Dhuafa Baznas Kuansing',
+        statusPencairan: 'Sudah Cair',
+        dibuatPada: '2025-08-20T09:00:00Z',
+      }
+    ],
     sttb: {
       noPesertaUN: '04-006-002-7',
       noIjazah: 'DN-09/D-SD/K13/26/0014522',
@@ -388,6 +434,30 @@ export const initialStudents: Student[] = [
     tanggalMenerimaBantuan: '2026-08-20',
     nominalBantuan: 'Rp 300.000 / semester',
     keteranganBantuan: 'Perlengkapan Sekolah Bantuan Dana Desa',
+    riwayatBantuan: [
+      {
+        id: 'btn-003-1',
+        jenis: 'Bantuan dari desa',
+        tahunPelajaran: '2026/2027',
+        tahap: 'Tahap 1',
+        tanggalMenerima: '2026-08-20',
+        nominal: 'Rp 300.000 / semester',
+        keterangan: 'Perlengkapan Sekolah Bantuan Dana Desa Sungai Buluh',
+        statusPencairan: 'Sudah Cair',
+        dibuatPada: '2026-08-20T09:00:00Z',
+      },
+      {
+        id: 'btn-003-2',
+        jenis: 'Bantuan dari desa',
+        tahunPelajaran: '2024/2025',
+        tahap: 'Tahap 1',
+        tanggalMenerima: '2024-09-01',
+        nominal: 'Rp 300.000 / semester',
+        keterangan: 'Alokasi Dana Desa untuk Perlengkapan Sekolah',
+        statusPencairan: 'Sudah Cair',
+        dibuatPada: '2024-09-01T08:00:00Z',
+      }
+    ],
     raport: [
       {
         semester: 9,
@@ -738,6 +808,20 @@ export const initialStudents: Student[] = [
     tanggalMenerimaBantuan: '2026-09-05',
     nominalBantuan: 'Rp 600.000 / tahun',
     keteranganBantuan: 'Program CSR Peduli Anak Mitra Sawit PT RAPP',
+    riwayatBantuan: [
+      {
+        id: 'btn-007-1',
+        jenis: 'Bantuan Lainnya',
+        bantuanLainnya: 'Beasiswa CSR PT RAPP',
+        tahunPelajaran: '2026/2027',
+        tahap: 'Tahap 2',
+        tanggalMenerima: '2026-09-05',
+        nominal: 'Rp 600.000 / tahun',
+        keterangan: 'Program CSR Peduli Anak Mitra Sawit PT RAPP',
+        statusPencairan: 'Sudah Cair',
+        dibuatPada: '2026-09-05T08:30:00Z',
+      }
+    ],
     raport: [],
     createdAt: '2024-07-15T08:00:00Z',
     updatedAt: '2025-06-20T09:00:00Z',
@@ -812,6 +896,19 @@ export const initialStudents: Student[] = [
     tanggalMenerimaBantuan: '2026-07-25',
     nominalBantuan: 'Keringanan Biaya Komite & Seragam',
     keteranganBantuan: 'Bantuan Beasiswa Internal SDN 006 Sungai Buluh',
+    riwayatBantuan: [
+      {
+        id: 'btn-008-1',
+        jenis: 'Bantuan Sekolah',
+        tahunPelajaran: '2026/2027',
+        tahap: 'Semester Ganjil',
+        tanggalMenerima: '2026-07-25',
+        nominal: 'Keringanan Biaya Komite & Seragam',
+        keterangan: 'Bantuan Beasiswa Internal SDN 006 Sungai Buluh',
+        statusPencairan: 'Sudah Cair',
+        dibuatPada: '2026-07-25T08:30:00Z',
+      }
+    ],
     raport: [],
     createdAt: '2025-07-14T08:30:00Z',
     updatedAt: '2025-07-14T08:30:00Z',
@@ -855,6 +952,26 @@ export const initialStudents: Student[] = [
     status: 'Aktif',
     tahunMasuk: '2023',
     fotoUrl: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=240&auto=format&fit=crop&q=80',
+    penerimaBantuan: 'Penerima PIP',
+    jenisBantuanList: ['Penerima PIP'],
+    tahunBantuan: '2024/2025',
+    tahapBantuan: 'Tahap 1',
+    tanggalMenerimaBantuan: '2024-08-15',
+    nominalBantuan: 'Rp 450.000 / tahun',
+    keteranganBantuan: 'SK PIP Kemdikbud No. 018/PIP-SD/2024',
+    riwayatBantuan: [
+      {
+        id: 'btn-009-1',
+        jenis: 'Penerima PIP',
+        tahunPelajaran: '2024/2025',
+        tahap: 'Tahap 1',
+        tanggalMenerima: '2024-08-15',
+        nominal: 'Rp 450.000 / tahun',
+        keterangan: 'SK PIP Kemdikbud No. 018/PIP-SD/2024 • Rekening BRI SimPel',
+        statusPencairan: 'Sudah Cair',
+        dibuatPada: '2024-08-15T08:00:00Z',
+      }
+    ],
     raport: [
       {
         semester: 5,
@@ -981,6 +1098,26 @@ export const initialStudents: Student[] = [
     status: 'Aktif',
     tahunMasuk: '2022',
     fotoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=240&auto=format&fit=crop&q=80',
+    penerimaBantuan: 'Bantuan Sekolah',
+    jenisBantuanList: ['Bantuan Sekolah'],
+    tahunBantuan: '2025/2026',
+    tahapBantuan: 'Tahap 1',
+    tanggalMenerimaBantuan: '2025-10-12',
+    nominalBantuan: 'Rp 500.000 (Beasiswa Juara OSN)',
+    keteranganBantuan: 'Beasiswa Pembinaan Siswa Berprestasi Tingkat Kabupaten',
+    riwayatBantuan: [
+      {
+        id: 'btn-011-1',
+        jenis: 'Bantuan Sekolah',
+        tahunPelajaran: '2025/2026',
+        tahap: 'Tahap 1',
+        tanggalMenerima: '2025-10-12',
+        nominal: 'Rp 500.000 (Beasiswa Juara OSN)',
+        keterangan: 'Beasiswa Pembinaan Siswa Berprestasi Tingkat Kabupaten',
+        statusPencairan: 'Sudah Cair',
+        dibuatPada: '2025-10-12T09:00:00Z',
+      }
+    ],
     raport: [
       {
         semester: 9,

@@ -84,25 +84,33 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
   const [formStatusPencairan, setFormStatusPencairan] = useState<'Sudah Cair' | 'Dalam Proses' | 'Belum Cair'>('Sudah Cair');
   const [formKeterangan, setFormKeterangan] = useState<string>('');
 
-  // Helper to extract student's aid types array
+  // Helper to extract student's aid types array for a specific academic year (or ALL)
   const getStudentBantuanTypes = (s: Student, tp?: string): string[] => {
     const typesSet = new Set<string>();
-    if (s.riwayatBantuan && Array.isArray(s.riwayatBantuan)) {
-      s.riwayatBantuan.forEach(r => {
+    const hasHistory = Boolean(s.riwayatBantuan && Array.isArray(s.riwayatBantuan) && s.riwayatBantuan.length > 0);
+
+    if (hasHistory) {
+      s.riwayatBantuan!.forEach(r => {
         if (!tp || tp === 'ALL' || r.tahunPelajaran === tp) {
           if (r.jenis) typesSet.add(r.jenis);
         }
       });
+      return Array.from(typesSet);
     }
-    if (s.jenisBantuanList && s.jenisBantuanList.length > 0) {
-      s.jenisBantuanList.forEach(t => typesSet.add(t));
-    } else if (s.penerimaBantuan && s.penerimaBantuan !== 'Tidak' && s.penerimaBantuan !== 'Bukan Penerima') {
-      s.penerimaBantuan.split(',').map(x => x.trim()).filter(Boolean).forEach(t => typesSet.add(t));
+
+    // Only if student has no riwayatBantuan, fall back to legacy fields if year matches
+    const bYear = s.tahunBantuan || (s.tahunPelajaranKelasSekarang || activeTP);
+    if (!tp || tp === 'ALL' || bYear === tp) {
+      if (s.jenisBantuanList && s.jenisBantuanList.length > 0) {
+        s.jenisBantuanList.forEach(t => typesSet.add(t));
+      } else if (s.penerimaBantuan && s.penerimaBantuan !== 'Tidak' && s.penerimaBantuan !== 'Bukan Penerima') {
+        s.penerimaBantuan.split(',').map(x => x.trim()).filter(Boolean).forEach(t => typesSet.add(t));
+      }
     }
     return Array.from(typesSet);
   };
 
-  // Helper function to check if student is a recipient
+  // Helper function to check if student is a recipient (ever received aid)
   const isBantuanRecipient = (s: Student): boolean => {
     const hasHistory = Boolean(s.riwayatBantuan && s.riwayatBantuan.length > 0);
     const hasExplicitBantuan = Boolean(
@@ -120,18 +128,22 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
   // Helper to get all assistance records of a student for a specific academic year (or ALL)
   const getStudentBantuanRecords = (s: Student, tp: string): BantuanRecord[] => {
     const records: BantuanRecord[] = [];
-    if (s.riwayatBantuan && Array.isArray(s.riwayatBantuan)) {
-      s.riwayatBantuan.forEach(r => {
+    const hasHistory = Boolean(s.riwayatBantuan && Array.isArray(s.riwayatBantuan) && s.riwayatBantuan.length > 0);
+
+    if (hasHistory) {
+      s.riwayatBantuan!.forEach(r => {
         if (tp === 'ALL' || r.tahunPelajaran === tp) {
           records.push(r);
         }
       });
+      return records;
     }
-    // If student has legacy top-level bantuan and no matching riwayatBantuan for this TP, synthesize it
-    if (records.length === 0 && isBantuanRecipient(s)) {
+
+    // If student has legacy top-level bantuan and no riwayatBantuan array
+    if (isBantuanRecipient(s)) {
       const bYear = getBantuanYear(s);
       if (tp === 'ALL' || bYear === tp) {
-        const types = getStudentBantuanTypes(s);
+        const types = getStudentBantuanTypes(s, bYear);
         types.forEach((t, i) => {
           records.push({
             id: `legacy-${s.id}-${i}`,
@@ -155,17 +167,18 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
     return students.filter(s => s.status === 'Aktif' || !s.status);
   }, [students]);
 
-  // All assistance recipients filtered by Academic Year
+  // All assistance recipients filtered strictly by chosen Academic Year (Tahun Pelajaran)
   const recipientsInSelectedTP = useMemo(() => {
     return students.filter(s => {
       if (!isBantuanRecipient(s)) return false;
+      if (selectedTP === 'ALL') {
+        return true;
+      }
+      // Strict matching: only students with aid records in the selected year appear
       const records = getStudentBantuanRecords(s, selectedTP);
-      if (selectedTP === 'ALL') return records.length > 0 || isBantuanRecipient(s);
-      if (records.length > 0) return true;
-      const bYear = getBantuanYear(s);
-      return bYear === selectedTP || (s.status === 'Aktif' && bYear === activeTP);
+      return records.length > 0;
     });
-  }, [students, selectedTP, activeTP]);
+  }, [students, selectedTP]);
 
   // List of unique Tahap options available in current dataset or standard terms
   const availableTahapOptions = useMemo(() => {
@@ -203,12 +216,15 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
         (s.bantuanLainnya && s.bantuanLainnya.toLowerCase().includes(q)) ||
         (s.keteranganBantuan && s.keteranganBantuan.toLowerCase().includes(q));
 
-      // Jenis Bantuan filter
-      const types = getStudentBantuanTypes(s);
+      // Jenis Bantuan filter (sesuai tahun pelajaran terpilih)
+      const types = getStudentBantuanTypes(s, selectedTP);
+      const studentRecords = getStudentBantuanRecords(s, selectedTP);
       let matchJenis = true;
       if (filterJenis !== 'ALL') {
         if (filterJenis === 'Bantuan Lainnya') {
-          matchJenis = types.includes('Bantuan Lainnya') || Boolean(s.bantuanLainnya);
+          matchJenis = types.includes('Bantuan Lainnya') || 
+            studentRecords.some(r => r.jenis === 'Bantuan Lainnya' || Boolean(r.bantuanLainnya)) || 
+            Boolean(s.bantuanLainnya);
         } else {
           matchJenis = types.includes(filterJenis);
         }
@@ -220,11 +236,11 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
       // Gender filter
       const matchGender = filterGender === 'ALL' || s.jenisKelamin === filterGender;
 
-      // Tahap filter
+      // Tahap filter (sesuai catatan bantuan di tahun pelajaran terpilih)
       let matchTahap = true;
       if (filterTahap !== 'ALL') {
-        const sTahap = s.tahapBantuan ? s.tahapBantuan.trim() : 'Tahap 1';
-        matchTahap = sTahap.toLowerCase() === filterTahap.toLowerCase();
+        matchTahap = studentRecords.some(r => (r.tahap || 'Tahap 1').toLowerCase() === filterTahap.toLowerCase()) ||
+          (!studentRecords.length && (s.tahapBantuan || 'Tahap 1').toLowerCase() === filterTahap.toLowerCase());
       }
 
       return matchSearch && matchJenis && matchKelas && matchGender && matchTahap;
@@ -235,13 +251,13 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
       } else if (sortBy === 'kelas') {
         comparison = (a.kelasSekarang || '').localeCompare(b.kelasSekarang || '');
       } else if (sortBy === 'jenis') {
-        const typeA = getStudentBantuanTypes(a).join(', ');
-        const typeB = getStudentBantuanTypes(b).join(', ');
+        const typeA = getStudentBantuanTypes(a, selectedTP).join(', ');
+        const typeB = getStudentBantuanTypes(b, selectedTP).join(', ');
         comparison = typeA.localeCompare(typeB);
       }
       return sortOrder === 'asc' ? comparison : -comparison;
     });
-  }, [recipientsInSelectedTP, searchQuery, filterJenis, filterKelas, filterGender, filterTahap, sortBy, sortOrder]);
+  }, [recipientsInSelectedTP, searchQuery, filterJenis, filterKelas, filterGender, filterTahap, sortBy, sortOrder, selectedTP]);
 
   // =========================================================================
   // STATISTIK PERHITUNGAN BANTUAN (Sesuai instruksi: "buatkan statik nya")
@@ -424,7 +440,7 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
         const records = getStudentBantuanRecords(s, selectedTP);
         const programList = records.length > 0 
           ? records.map(r => `${r.jenis}${r.tahap ? ` (${r.tahap})` : ''}`).join('; ')
-          : getStudentBantuanTypes(s).join(', ');
+          : getStudentBantuanTypes(s, selectedTP).join(', ');
         const nominalList = records.length > 0
           ? records.map(r => r.nominal).filter(Boolean).join('; ')
           : s.nominalBantuan || '-';
@@ -437,6 +453,9 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
         const ketList = records.length > 0
           ? records.map(r => r.keterangan).filter(Boolean).join('; ')
           : s.keteranganBantuan || '-';
+        const displayYear = selectedTP === 'ALL'
+          ? (records[0]?.tahunPelajaran || getBantuanYear(s))
+          : selectedTP;
 
         return {
           'No': idx + 1,
@@ -446,8 +465,8 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
           'Jenis Kelamin': s.jenisKelamin === 'L' ? 'Laki-laki' : 'Perempuan',
           'Kelas Saat Ini': s.kelasSekarang,
           'Program / Jenis Bantuan': programList,
-          'Rincian / Bantuan Lainnya': s.bantuanLainnya || '-',
-          'Tahun Pelajaran': getBantuanYear(s),
+          'Rincian / Bantuan Lainnya': records[0]?.bantuanLainnya || s.bantuanLainnya || '-',
+          'Tahun Pelajaran': displayYear,
           'Tahap / Termin': tahapList,
           'Tanggal Menerima': tglList,
           'Nominal Bantuan': nominalList,
@@ -561,20 +580,33 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
         {/* Toolbar Kontrol: Pemilih Tahun Pelajaran, Tambah, Export, Cetak */}
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Selector Tahun Pelajaran */}
-          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-300 dark:border-slate-700">
+          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-300 dark:border-slate-700 shadow-2xs">
             <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400 ml-2" />
             <select
               value={selectedTP}
-              onChange={(e) => setSelectedTP(e.target.value)}
+              onChange={(e) => {
+                setSelectedTP(e.target.value);
+                setFilterTahap('ALL');
+              }}
               className="bg-transparent text-xs font-black text-slate-800 dark:text-slate-100 py-1.5 pr-2 focus:outline-hidden cursor-pointer"
+              title="Pilih Tahun Pelajaran untuk memfilter siswa penerima bantuan di tahun tersebut"
             >
-              <option value={activeTP}>TP {activeTP} (Tahun Aktif)</option>
+              <option value={activeTP}>
+                TP {activeTP} (Tahun Aktif) — {students.filter(s => getStudentBantuanRecords(s, activeTP).length > 0).length} Siswa
+              </option>
               {(schoolProfile?.daftarTahunPelajaran || ['2023/2024', '2024/2025', '2025/2026', '2026/2027', '2027/2028'])
                 .filter(tp => tp !== activeTP)
-                .map(tp => (
-                  <option key={tp} value={tp}>TP {tp}</option>
-                ))}
-              <option value="ALL">Semua Tahun Pelajaran</option>
+                .map(tp => {
+                  const countInTP = students.filter(s => getStudentBantuanRecords(s, tp).length > 0).length;
+                  return (
+                    <option key={tp} value={tp}>
+                      TP {tp} — {countInTP} Siswa
+                    </option>
+                  );
+                })}
+              <option value="ALL">
+                Semua Tahun Pelajaran — {students.filter(isBantuanRecipient).length} Siswa
+              </option>
             </select>
           </div>
 
@@ -809,9 +841,13 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                 <tr>
                   <td colSpan={12} className="text-center py-12 text-slate-500">
                     <HandCoins className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
-                    <p className="font-bold text-sm">Tidak ada siswa penerima bantuan yang sesuai kriteria.</p>
+                    <p className="font-bold text-sm">
+                      {selectedTP === 'ALL'
+                        ? 'Tidak ada siswa penerima bantuan yang sesuai kriteria.'
+                        : `Tidak ada siswa yang menerima bantuan pada Tahun Pelajaran ${selectedTP}.`}
+                    </p>
                     <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-                      Siswa dapat didaftarkan sebagai penerima bantuan melalui menu "Tambahkan Bantuan" di atas atau tombol di bawah ini.
+                      Siswa dapat didaftarkan sebagai penerima bantuan pada tahun ini melalui menu "Tambahkan Bantuan" di atas atau tombol di bawah ini.
                     </p>
                     <button
                       type="button"
@@ -825,9 +861,13 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                 </tr>
               ) : (
                 filteredRecipients.map((s, idx) => {
-                  const bTypes = getStudentBantuanTypes(s);
-                  const bYear = getBantuanYear(s);
                   const studentRecords = getStudentBantuanRecords(s, selectedTP);
+                  const bTypes = getStudentBantuanTypes(s, selectedTP);
+                  const primaryRecord = studentRecords[0];
+                  const displayYear = selectedTP === 'ALL'
+                    ? (primaryRecord?.tahunPelajaran || getBantuanYear(s))
+                    : selectedTP;
+
                   return (
                     <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                       <td className="py-3 px-3.5 text-center font-mono text-slate-500">{idx + 1}</td>
@@ -865,7 +905,7 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                       </td>
                       <td className="py-3 px-3.5">
                         <div className="flex flex-wrap items-center gap-1">
-                          {bTypes.map(t => renderJenisBadge(t, s.bantuanLainnya))}
+                          {bTypes.map(t => renderJenisBadge(t, primaryRecord?.bantuanLainnya || (t === 'Bantuan Lainnya' ? s.bantuanLainnya : undefined)))}
                           {studentRecords.length > 1 && (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
                               <History className="w-2.5 h-2.5" />
@@ -875,16 +915,16 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                         </div>
                       </td>
                       <td className="py-3 px-3.5 font-semibold text-slate-800 dark:text-slate-200">
-                        {s.bantuanLainnya || '-'}
+                        {primaryRecord?.bantuanLainnya || (bTypes.includes('Bantuan Lainnya') ? s.bantuanLainnya : '-') || '-'}
                       </td>
                       <td className="py-3 px-3.5">
                         <span className={cn(
                           "px-2 py-0.5 rounded-md font-mono font-bold text-[10px]",
-                          bYear === activeTP 
+                          displayYear === activeTP 
                             ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
                             : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                         )}>
-                          TP {bYear}
+                          TP {displayYear}
                         </span>
                       </td>
                       <td className="py-3 px-3.5">
@@ -901,12 +941,17 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                           </div>
                         ) : (
                           <span className="px-2 py-0.5 rounded-md font-semibold text-[10.5px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 whitespace-nowrap">
-                            {s.tahapBantuan || 'Tahap 1'}
+                            {primaryRecord?.tahap || s.tahapBantuan || 'Tahap 1'}
                           </span>
                         )}
                       </td>
                       <td className="py-3 px-3.5 text-slate-600 dark:text-slate-300 whitespace-nowrap">
-                        {s.tanggalMenerimaBantuan ? (
+                        {primaryRecord?.tanggalMenerima ? (
+                          <div className="flex items-center gap-1 font-medium text-[11px]">
+                            <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span>{formatIndonesianDate(primaryRecord.tanggalMenerima)}</span>
+                          </div>
+                        ) : s.tanggalMenerimaBantuan ? (
                           <div className="flex items-center gap-1 font-medium text-[11px]">
                             <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
                             <span>{formatIndonesianDate(s.tanggalMenerimaBantuan)}</span>
@@ -926,11 +971,11 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                             )}
                           </div>
                         ) : (
-                          s.nominalBantuan || '-'
+                          primaryRecord?.nominal || s.nominalBantuan || '-'
                         )}
                       </td>
                       <td className="py-3 px-3.5 text-slate-600 dark:text-slate-400">
-                        {s.keteranganBantuan || '-'}
+                        {primaryRecord?.keterangan || s.keteranganBantuan || '-'}
                       </td>
                       <td className="py-3 px-3.5 text-center">
                         <div className="flex items-center justify-center gap-1.5">
@@ -1508,25 +1553,32 @@ export const PenerimaBantuanView: React.FC<PenerimaBantuanViewProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRecipients.map((s, idx) => (
-                    <tr key={s.id} className="border-b border-slate-300 text-[11px]">
-                      <td className="p-2 border border-slate-300 text-center font-mono">{idx + 1}</td>
-                      <td className="p-2 border border-slate-300 font-bold">{s.namaLengkap}</td>
-                      <td className="p-2 border border-slate-300 font-mono text-[10px]">{s.noInduk} / {s.nisn}</td>
-                      <td className="p-2 border border-slate-300 text-center font-bold">{s.jenisKelamin}</td>
-                      <td className="p-2 border border-slate-300 text-center font-bold">{s.kelasSekarang}</td>
-                      <td className="p-2 border border-slate-300 font-bold">
-                        {getStudentBantuanTypes(s).join(', ')}
-                        {s.bantuanLainnya ? ` (${s.bantuanLainnya})` : ''}
-                      </td>
-                      <td className="p-2 border border-slate-300 text-center">{s.tahapBantuan || 'Tahap 1'}</td>
-                      <td className="p-2 border border-slate-300 text-center text-[10px]">
-                        {s.tanggalMenerimaBantuan ? formatIndonesianDate(s.tanggalMenerimaBantuan) : '-'}
-                      </td>
-                      <td className="p-2 border border-slate-300 font-mono">{s.nominalBantuan || '-'}</td>
-                      <td className="p-2 border border-slate-300 text-[10px]">{s.keteranganBantuan || '-'}</td>
-                    </tr>
-                  ))}
+                  {filteredRecipients.map((s, idx) => {
+                    const studentRecords = getStudentBantuanRecords(s, selectedTP);
+                    const bTypes = getStudentBantuanTypes(s, selectedTP);
+                    const primaryRecord = studentRecords[0];
+                    return (
+                      <tr key={s.id} className="border-b border-slate-300 text-[11px]">
+                        <td className="p-2 border border-slate-300 text-center font-mono">{idx + 1}</td>
+                        <td className="p-2 border border-slate-300 font-bold">{s.namaLengkap}</td>
+                        <td className="p-2 border border-slate-300 font-mono text-[10px]">{s.noInduk} / {s.nisn}</td>
+                        <td className="p-2 border border-slate-300 text-center font-bold">{s.jenisKelamin}</td>
+                        <td className="p-2 border border-slate-300 text-center font-bold">{s.kelasSekarang}</td>
+                        <td className="p-2 border border-slate-300 font-bold">
+                          {bTypes.length > 0 ? bTypes.join(', ') : '-'}
+                          {primaryRecord?.bantuanLainnya ? ` (${primaryRecord.bantuanLainnya})` : (s.bantuanLainnya ? ` (${s.bantuanLainnya})` : '')}
+                        </td>
+                        <td className="p-2 border border-slate-300 text-center">{primaryRecord?.tahap || s.tahapBantuan || 'Tahap 1'}</td>
+                        <td className="p-2 border border-slate-300 text-center text-[10px]">
+                          {primaryRecord?.tanggalMenerima 
+                            ? formatIndonesianDate(primaryRecord.tanggalMenerima) 
+                            : (s.tanggalMenerimaBantuan ? formatIndonesianDate(s.tanggalMenerimaBantuan) : '-')}
+                        </td>
+                        <td className="p-2 border border-slate-300 font-mono">{primaryRecord?.nominal || s.nominalBantuan || '-'}</td>
+                        <td className="p-2 border border-slate-300 text-[10px]">{primaryRecord?.keterangan || s.keteranganBantuan || '-'}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
 
