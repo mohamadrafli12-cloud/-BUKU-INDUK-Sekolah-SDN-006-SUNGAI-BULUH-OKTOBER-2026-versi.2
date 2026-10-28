@@ -220,6 +220,10 @@ export interface Student {
   keteranganBantuan?: string; // Catatan/No KIP/SK Penerima Bantuan
   riwayatBantuan?: BantuanRecord[]; // Riwayat beberapa bantuan yang diterima siswa di tahun pelajaran aktif
 
+  // Meninggal Dunia
+  tanggalMeninggal?: string; // Tanggal siswa meninggal dunia (YYYY-MM-DD)
+  penyebabMeninggal?: string; // Penyebab wafat / keterangan kematian
+
   // Modul Lanjutan
   mutasi?: MutationRecord;
   sttb?: GraduationSTTB;

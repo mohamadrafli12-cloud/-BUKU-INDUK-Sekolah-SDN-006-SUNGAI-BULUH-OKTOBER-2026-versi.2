@@ -26,12 +26,17 @@ import {
   UserX,
   BarChart2,
   ExternalLink,
-  AlertCircle
+  AlertCircle,
+  Edit3,
+  Plus,
+  X,
+  Save,
+  CheckCircle
 } from 'lucide-react';
 import { useSchool } from '../../context/SchoolContext';
 import { ActiveTab } from '../layout/Sidebar';
 import { cn, formatIndonesianDate } from '../../lib/utils';
-import { Student } from '../../types';
+import { Student, MutationRecord } from '../../types';
 import { downloadExcelTemplate } from '../../utils/excelHelper';
 
 interface LaporanViewProps {
@@ -51,6 +56,7 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
 }) => {
   const { 
     students, 
+    updateStudent,
     schoolProfile, 
     exportStudentsCSV, 
     exportDatabaseJSON,
@@ -62,6 +68,17 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
   const [activeCategory, setActiveCategory] = useState<'all' | 'akademik' | 'mutasi' | 'cetak' | 'ekspor' | 'audit'>('all');
   const [deceasedSearch, setDeceasedSearch] = useState('');
   const [deceasedKelasFilter, setDeceasedKelasFilter] = useState('all');
+
+  // State untuk Edit/Input Data Siswa Meninggal
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [isAddingNewDeceased, setIsAddingNewDeceased] = useState(false);
+  const [selectedStudentIdForNew, setSelectedStudentIdForNew] = useState('');
+  const [editTanggalMeninggal, setEditTanggalMeninggal] = useState('');
+  const [editPenyebab, setEditPenyebab] = useState('');
+  const [editKeterangan, setEditKeterangan] = useState('');
+  const [editKelasTerakhir, setEditKelasTerakhir] = useState('Kelas 1');
+  const [editNoSuratKematian, setEditNoSuratKematian] = useState('');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const totalSiswa = students.length;
   const siswaAktif = students.filter(s => s.status === 'Aktif').length;
@@ -112,6 +129,93 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
     const ket = getPenyebabKeterangan(s).toLowerCase();
     return nama.includes(q) || nis.includes(q) || nisn.includes(q) || kelas.toLowerCase().includes(q) || ket.includes(q);
   });
+
+  // Handler untuk membuka modal Edit Data Siswa Meninggal
+  const handleOpenEdit = (student: Student) => {
+    setEditingStudent(student);
+    setIsAddingNewDeceased(false);
+    setSelectedStudentIdForNew(student.id);
+
+    const rawTgl = getTanggalMeninggal(student);
+    setEditTanggalMeninggal(rawTgl && rawTgl !== '-' ? rawTgl : new Date().toISOString().split('T')[0]);
+    
+    const rawPenyebab = student.penyebabMeninggal || student.mutasi?.alasanPindah || '';
+    setEditPenyebab(rawPenyebab);
+
+    const rawKet = student.mutasi?.keterangan || '';
+    setEditKeterangan(rawKet);
+
+    setEditKelasTerakhir(getKelasTerakhir(student));
+    setEditNoSuratKematian(student.mutasi?.noSuratPindah || '');
+  };
+
+  // Handler untuk membuka modal Tambah / Catat Siswa Meninggal Baru
+  const handleOpenAdd = () => {
+    setIsAddingNewDeceased(true);
+    setEditingStudent(null);
+    setSelectedStudentIdForNew('');
+    setEditTanggalMeninggal(new Date().toISOString().split('T')[0]);
+    setEditPenyebab('');
+    setEditKeterangan('');
+    setEditKelasTerakhir('Kelas 1');
+    setEditNoSuratKematian('');
+  };
+
+  const handleSelectStudentForNew = (studentId: string) => {
+    setSelectedStudentIdForNew(studentId);
+    const target = students.find(s => s.id === studentId);
+    if (target) {
+      setEditKelasTerakhir(target.kelasSekarang || 'Kelas 1');
+      if (target.penyebabMeninggal) setEditPenyebab(target.penyebabMeninggal);
+      if (target.tanggalMeninggal) setEditTanggalMeninggal(target.tanggalMeninggal);
+    }
+  };
+
+  const handleSaveDeceasedData = (e: React.FormEvent) => {
+    e.preventDefault();
+    const targetStudent = editingStudent || students.find(s => s.id === selectedStudentIdForNew);
+    if (!targetStudent) {
+      alert('Pilih siswa yang akan dicatat terlebih dahulu');
+      return;
+    }
+
+    if (!editTanggalMeninggal) {
+      alert('Silakan pilih tanggal meninggal dunia');
+      return;
+    }
+
+    const currentMutasi = targetStudent.mutasi || {};
+    const updatedMutasi: MutationRecord = {
+      ...currentMutasi,
+      tglMeninggalkan: editTanggalMeninggal,
+      dikeluarkanTanggal: editTanggalMeninggal,
+      alasanPindah: editPenyebab.trim() || 'Meninggal Dunia',
+      keterangan: editKeterangan.trim(),
+      dariKelas: editKelasTerakhir || targetStudent.kelasSekarang,
+      noSuratPindah: editNoSuratKematian.trim() || currentMutasi.noSuratPindah,
+    };
+
+    updateStudent(targetStudent.id, {
+      status: 'Meninggal',
+      tanggalMeninggal: editTanggalMeninggal,
+      penyebabMeninggal: editPenyebab.trim() || 'Meninggal Dunia',
+      kelasSekarang: editKelasTerakhir || targetStudent.kelasSekarang,
+      mutasi: updatedMutasi,
+    });
+
+    setEditingStudent(null);
+    setIsAddingNewDeceased(false);
+    setToastMessage(`Data kematian siswa ${targetStudent.namaLengkap} berhasil diperbarui & disinkronkan ke Statistik Siswa Aktif.`);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const commonCauses = [
+    'Sakit (Demam Berdarah / DBD)',
+    'Sakit Medis / Kronis',
+    'Kecelakaan Lalu Lintas',
+    'Musibah Tenggelam',
+    'Sakit Jantung / Bawaan'
+  ];
 
   const reportItems: {
     id: string;
@@ -557,8 +661,17 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
               </div>
             </div>
 
-            {/* Quick action button connecting to active students periodic stats */}
-            <div className="flex items-center gap-2 shrink-0">
+            {/* Quick action buttons connecting to active students periodic stats and recording deceased */}
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+              <button
+                type="button"
+                onClick={handleOpenAdd}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
+                title="Catat atau isi data siswa meninggal dunia baru"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Catat Siswa Wafat</span>
+              </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('active-students')}
@@ -658,7 +771,7 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
                   <th className="py-3 px-4 w-36">Kelas Terakhir</th>
                   <th className="py-3 px-4 w-44">Tanggal Meninggal</th>
                   <th className="py-3 px-4 min-w-[220px]">Penyebab / Keterangan</th>
-                  <th className="py-3 px-4 w-44 text-right">Koneksi Statistik</th>
+                  <th className="py-3 px-4 w-52 text-right">Aksi & Statistik</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -748,15 +861,27 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
 
                       {/* Koneksi Statistik & Aksi */}
                       <td className="py-3.5 px-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setActiveTab('active-students')}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 hover:bg-[#003399] hover:text-white dark:hover:bg-blue-600 dark:hover:text-white text-[#003399] dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-bold text-xs transition-all shadow-2xs cursor-pointer group/btn"
-                          title="Lihat di Statistik Bulanan & Periodik Siswa Aktif"
-                        >
-                          <BarChart2 className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
-                          <span>Buka Statistik</span>
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(student)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-600 hover:text-white dark:hover:bg-amber-600 dark:hover:text-white text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-bold text-xs transition-all shadow-2xs cursor-pointer group/edit"
+                            title="Edit tanggal meninggal dan penyebab / keterangan"
+                          >
+                            <Edit3 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 group-hover/edit:text-white transition-colors" />
+                            <span>Edit</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab('active-students')}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 hover:bg-[#003399] hover:text-white dark:hover:bg-blue-600 dark:hover:text-white text-[#003399] dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-bold text-xs transition-all shadow-2xs cursor-pointer group/btn"
+                            title="Lihat di Statistik Bulanan & Periodik Siswa Aktif"
+                          >
+                            <BarChart2 className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
+                            <span>Statistik</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -779,18 +904,28 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
                 ? 'Silakan sesuaikan kata kunci pencarian atau pilihan kelas terakhir.'
                 : 'Data siswa yang ditandai berstatus Meninggal Dunia akan otomatis tampil di sini dan terhubung dengan rekapitulasi Statistik Bulanan & Periodik.'}
             </p>
-            {(deceasedSearch || deceasedKelasFilter !== 'all') && (
+            <div className="flex items-center justify-center gap-2 mt-3">
+              {(deceasedSearch || deceasedKelasFilter !== 'all') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeceasedSearch('');
+                    setDeceasedKelasFilter('all');
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200 cursor-pointer"
+                >
+                  Reset Semua Filter
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => {
-                  setDeceasedSearch('');
-                  setDeceasedKelasFilter('all');
-                }}
-                className="mt-3 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200 cursor-pointer"
+                onClick={handleOpenAdd}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-2xs cursor-pointer"
               >
-                Reset Semua Filter
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Catat Siswa Wafat</span>
               </button>
-            )}
+            </div>
           </div>
         )}
 
@@ -812,6 +947,260 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* MODAL EDIT / CATAT SISWA MENINGGAL DUNIA */}
+      {(editingStudent || isAddingNewDeceased) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold">
+                  {isAddingNewDeceased ? <Plus className="w-5 h-5" /> : <Edit3 className="w-5 h-5" />}
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900 dark:text-slate-100">
+                    {isAddingNewDeceased ? 'Catat Siswa Meninggal Dunia' : 'Edit Data Siswa Meninggal'}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {isAddingNewDeceased
+                      ? 'Pilih siswa dan masukkan tanggal serta penyebab kematian'
+                      : `Perbarui tanggal meninggal & penyebab untuk ${editingStudent?.namaLengkap}`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingStudent(null);
+                  setIsAddingNewDeceased(false);
+                }}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body Form */}
+            <form onSubmit={handleSaveDeceasedData} className="p-5 overflow-y-auto space-y-4 text-xs">
+              {/* If adding new: Select student */}
+              {isAddingNewDeceased && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Pilih Siswa dari Buku Induk <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={selectedStudentIdForNew}
+                    onChange={(e) => handleSelectStudentForNew(e.target.value)}
+                    required
+                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 font-medium focus:ring-2 focus:ring-rose-500 focus:outline-hidden"
+                  >
+                    <option value="">-- Cari / Pilih Siswa --</option>
+                    {students
+                      .filter(s => s.status !== 'Meninggal')
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.namaLengkap} ({s.kelasSekarang || 'Tanpa Kelas'} - NIS: {s.noInduk || '-'})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Info Siswa Terpilih */}
+              {(editingStudent || (isAddingNewDeceased && selectedStudentIdForNew)) && (
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3">
+                  {(() => {
+                    const st = editingStudent || students.find(s => s.id === selectedStudentIdForNew);
+                    if (!st) return null;
+                    return (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center font-extrabold text-slate-700 dark:text-slate-200 shrink-0 overflow-hidden">
+                            {st.fotoUrl ? (
+                              <img src={st.fotoUrl} alt={st.namaLengkap} className="w-full h-full object-cover grayscale contrast-125" />
+                            ) : (
+                              <span>{(st.namaLengkap || 'S')[0]}</span>
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-extrabold text-slate-900 dark:text-slate-100 uppercase tracking-tight">
+                              {st.namaLengkap}
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                              NIS: {st.noInduk || '-'} • NISN: {st.nisn || '-'} • JK: {st.jenisKelamin === 'L' ? 'Laki-laki' : 'Perempuan'}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="px-2.5 py-1 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 font-extrabold text-[11px] border border-blue-200 dark:border-blue-900">
+                            {getKelasTerakhir(st)}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {/* Tanggal Meninggal Dunia */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Tanggal Meninggal Dunia <span className="text-rose-500">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setEditTanggalMeninggal(new Date().toISOString().split('T')[0])}
+                      className="text-[10px] text-blue-600 dark:text-blue-400 font-bold hover:underline cursor-pointer"
+                    >
+                      Hari Ini
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      value={editTanggalMeninggal}
+                      onChange={(e) => setEditTanggalMeninggal(e.target.value)}
+                      required
+                      className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 font-semibold focus:ring-2 focus:ring-rose-500 focus:outline-hidden"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Tanggal ini menentukan bulan di Statistik Bulanan Siswa Aktif.
+                  </p>
+                </div>
+
+                {/* Kelas Terakhir */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Kelas Terakhir <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={editKelasTerakhir}
+                    onChange={(e) => setEditKelasTerakhir(e.target.value)}
+                    required
+                    className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 font-medium focus:ring-2 focus:ring-rose-500 focus:outline-hidden"
+                  >
+                    <option value="Kelas 1">Kelas 1</option>
+                    <option value="Kelas 2">Kelas 2</option>
+                    <option value="Kelas 3">Kelas 3</option>
+                    <option value="Kelas 4">Kelas 4</option>
+                    <option value="Kelas 5">Kelas 5</option>
+                    <option value="Kelas 6">Kelas 6</option>
+                  </select>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Kelas saat siswa terakhir aktif sebelum berpulang.
+                  </p>
+                </div>
+              </div>
+
+              {/* Penyebab Meninggal Dunia */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Penyebab Meninggal Dunia <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editPenyebab}
+                  onChange={(e) => setEditPenyebab(e.target.value)}
+                  placeholder="Contoh: Sakit Demam Berdarah (DBD), Kondisi Medis, Kecelakaan, dll."
+                  required
+                  className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-rose-500 focus:outline-hidden"
+                />
+
+                {/* Quick chip suggestions */}
+                <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                  <span className="text-[10px] text-slate-400 font-semibold">Pilihan cepat:</span>
+                  {commonCauses.map((cause) => (
+                    <button
+                      key={cause}
+                      type="button"
+                      onClick={() => setEditPenyebab(cause)}
+                      className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-rose-100 hover:text-rose-700 dark:hover:bg-rose-950 dark:hover:text-rose-300 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+                    >
+                      {cause}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Keterangan Tambahan / Lokasi / Berkas */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Keterangan / Catatan Arsip Buku Induk
+                </label>
+                <textarea
+                  rows={3}
+                  value={editKeterangan}
+                  onChange={(e) => setEditKeterangan(e.target.value)}
+                  placeholder="Contoh: Meninggal dunia di RSUD Teluk Kuantan. Dimakamkan di TPU Desa Sungai Buluh. Berkas buku induk telah diarsipkan khusus..."
+                  className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-rose-500 focus:outline-hidden leading-relaxed"
+                />
+              </div>
+
+              {/* Nomor Surat Kematian / Akta (Opsional) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Nomor Surat Kematian / Akta Kematian (Opsional)
+                </label>
+                <input
+                  type="text"
+                  value={editNoSuratKematian}
+                  onChange={(e) => setEditNoSuratKematian(e.target.value)}
+                  placeholder="Contoh: 472.12/SK/SB/XI/2026 atau No. Akta Kematian Dukcapil"
+                  className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-rose-500 focus:outline-hidden"
+                />
+              </div>
+
+              {/* Notice Keterhubungan Data */}
+              <div className="p-3 rounded-xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 text-[11px] text-blue-900 dark:text-blue-200 flex items-start gap-2">
+                <span className="text-blue-600 font-black shrink-0">ℹ</span>
+                <span>
+                  Perubahan data ini langsung tersinkronisasi ke <strong>Buku Induk</strong> dan kartu <strong>Statistik Bulanan & Periodik Siswa Aktif</strong> (tercatat di kolom Meninggal Dunia pada bulan yang sesuai).
+                </span>
+              </div>
+
+              {/* Footer Buttons */}
+              <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingStudent(null);
+                    setIsAddingNewDeceased(false);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Simpan Perubahan</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 p-4 rounded-xl bg-emerald-600 text-white shadow-xl flex items-center gap-3 text-xs font-bold animate-in slide-in-from-bottom-5 duration-200">
+          <CheckCircle className="w-5 h-5 text-white shrink-0" />
+          <span>{toastMessage}</span>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="ml-2 hover:opacity-80 p-0.5 rounded cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
