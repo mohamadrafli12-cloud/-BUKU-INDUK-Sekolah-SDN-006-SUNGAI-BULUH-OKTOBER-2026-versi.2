@@ -21,11 +21,17 @@ import {
   History,
   Database,
   RotateCcw,
-  Cloud
+  Cloud,
+  HeartHandshake,
+  UserX,
+  BarChart2,
+  ExternalLink,
+  AlertCircle
 } from 'lucide-react';
 import { useSchool } from '../../context/SchoolContext';
 import { ActiveTab } from '../layout/Sidebar';
-import { cn } from '../../lib/utils';
+import { cn, formatIndonesianDate } from '../../lib/utils';
+import { Student } from '../../types';
 import { downloadExcelTemplate } from '../../utils/excelHelper';
 
 interface LaporanViewProps {
@@ -54,12 +60,58 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
   } = useSchool();
 
   const [activeCategory, setActiveCategory] = useState<'all' | 'akademik' | 'mutasi' | 'cetak' | 'ekspor' | 'audit'>('all');
+  const [deceasedSearch, setDeceasedSearch] = useState('');
+  const [deceasedKelasFilter, setDeceasedKelasFilter] = useState('all');
 
   const totalSiswa = students.length;
   const siswaAktif = students.filter(s => s.status === 'Aktif').length;
   const siswaLulus = students.filter(s => s.status === 'Lulus').length;
   const siswaMutasi = students.filter(s => s.status === 'Mutasi Keluar').length;
+  const siswaMeninggalList = students.filter(s => s.status === 'Meninggal');
+  const siswaMeninggalCount = siswaMeninggalList.length;
   const totalRaport = students.reduce((acc, s) => acc + (s.raport?.length || 0), 0);
+
+  // Helper untuk Siswa Meninggal
+  const getTanggalMeninggal = (s: Student) => {
+    return (
+      (s as any).tanggalMeninggal ||
+      s.mutasi?.tglMeninggalkan ||
+      s.mutasi?.dikeluarkanTanggal ||
+      (s.updatedAt ? s.updatedAt.split('T')[0] : '-')
+    );
+  };
+
+  const getKelasTerakhir = (s: Student) => {
+    return s.mutasi?.dariKelas || s.kelasSekarang || '-';
+  };
+
+  const getPenyebabKeterangan = (s: Student) => {
+    const alasan = s.mutasi?.alasanPindah;
+    const ket = s.mutasi?.keterangan;
+    const penyakit = s.kesehatan?.penyakitPernahDiderita;
+
+    const parts: string[] = [];
+    if (alasan) parts.push(alasan);
+    if (ket && ket !== alasan) parts.push(ket);
+    if (penyakit && !parts.some(p => p.toLowerCase().includes(penyakit.toLowerCase()))) {
+      parts.push(`Riwayat kesehatan: ${penyakit}`);
+    }
+    return parts.length > 0 ? parts.join(' • ') : 'Meninggal Dunia';
+  };
+
+  const uniqueClassesMeninggal = Array.from(new Set(siswaMeninggalList.map(s => getKelasTerakhir(s)))).filter(Boolean);
+
+  const filteredSiswaMeninggal = siswaMeninggalList.filter(s => {
+    const kelas = getKelasTerakhir(s);
+    if (deceasedKelasFilter !== 'all' && kelas !== deceasedKelasFilter) return false;
+    if (!deceasedSearch.trim()) return true;
+    const q = deceasedSearch.toLowerCase();
+    const nama = (s.namaLengkap || '').toLowerCase();
+    const nis = (s.noInduk || '').toLowerCase();
+    const nisn = (s.nisn || '').toLowerCase();
+    const ket = getPenyebabKeterangan(s).toLowerCase();
+    return nama.includes(q) || nis.includes(q) || nisn.includes(q) || kelas.toLowerCase().includes(q) || ket.includes(q);
+  });
 
   const reportItems: {
     id: string;
@@ -159,6 +211,27 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
       badge: `${siswaLulus} Lulusan / Alumni`,
       badgeColor: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300',
       actionLabel: 'Buka Register Ijazah',
+    },
+    {
+      id: 'siswa-meninggal-report',
+      title: 'Laporan Siswa Meninggal Dunia',
+      subtitle: 'Arsip Peserta Didik Wafat & Rekapitulasi Berkas',
+      description: 'Daftar resmi peserta didik yang wafat/meninggal dunia, kelas terakhir, tanggal wafat, dan penyebab/keterangan yang terhubung langsung dengan statistik bulanan & periodik siswa aktif.',
+      category: 'mutasi',
+      icon: HeartHandshake,
+      iconBg: 'bg-rose-50 dark:bg-rose-950/60',
+      iconColor: 'text-rose-600 dark:text-rose-400',
+      badge: `${siswaMeninggalCount} Siswa Wafat`,
+      badgeColor: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300',
+      actionLabel: 'Buka Rekap Siswa Meninggal',
+      onAction: () => {
+        const el = document.getElementById('div-siswa-meninggal');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' });
+          el.classList.add('ring-2', 'ring-rose-500');
+          setTimeout(() => el.classList.remove('ring-2', 'ring-rose-500'), 2000);
+        }
+      },
     },
     {
       id: 'blanko-buku-induk',
@@ -449,6 +522,295 @@ export const LaporanView: React.FC<LaporanViewProps> = ({
             </div>
           );
         })}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* DIV BARU: SISWA MENINGGAL DUNIA                                           */}
+      {/* Terhubung dengan data siswa aktif - Statistik Bulanan & Periodik          */}
+      {/* ========================================================================= */}
+      <div
+        id="div-siswa-meninggal"
+        className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden scroll-mt-6 transition-all"
+      >
+        {/* Header Div */}
+        <div className="p-5 md:p-6 border-b border-slate-200 dark:border-slate-800 bg-linear-to-r from-rose-50/70 via-white to-slate-50 dark:from-rose-950/20 dark:via-slate-900 dark:to-slate-900/60">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-900/60 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0 shadow-2xs">
+                <HeartHandshake className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h2 className="text-lg md:text-xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
+                    Siswa Meninggal Dunia
+                  </h2>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-900">
+                    {siswaMeninggalList.length} Siswa Tercatat
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                    Arsip Khusus Buku Induk
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Rekap data resmi peserta didik wafat, kelas terakhir, tanggal wafat, dan penyebab/keterangan — Terhubung dengan <strong>Data Siswa Aktif - Statistik Bulanan & Periodik</strong>
+                </p>
+              </div>
+            </div>
+
+            {/* Quick action button connecting to active students periodic stats */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setActiveTab('active-students')}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#003399] hover:bg-blue-800 text-white font-bold text-xs shadow-xs transition-all hover:shadow-md cursor-pointer group"
+                title="Buka Data Siswa Aktif dan lihat kartu Statistik Bulanan & Periodik"
+              >
+                <BarChart2 className="w-4 h-4 text-blue-200 group-hover:scale-110 transition-transform" />
+                <span>Buka Statistik Bulanan & Periodik Siswa Aktif</span>
+                <ChevronRight className="w-4 h-4 text-blue-200 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Banner Keterhubungan Data Siswa Aktif & Statistik Periodik */}
+        <div className="p-4 mx-5 my-4 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/70 dark:bg-blue-950/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-start gap-2.5">
+            <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 text-xs font-black shadow-2xs mt-0.5">
+              🔗
+            </div>
+            <div>
+              <div className="font-extrabold text-blue-950 dark:text-blue-200 flex items-center gap-2 flex-wrap">
+                <span>Sinkronisasi Otomatis dengan Statistik Periodik Siswa Aktif</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-200 dark:bg-blue-900 text-blue-900 dark:text-blue-200 font-bold">
+                  Siswa Aktif → Statistik Bulanan
+                </span>
+              </div>
+              <p className="text-slate-600 dark:text-slate-400 text-[11px] mt-1 leading-relaxed">
+                Setiap siswa berstatus <strong>Meninggal</strong> otomatis dihitung pada kartu <em>Statistik Bulanan & Periodik Siswa Aktif</em> dalam kolom tersendiri (<strong>Meninggal Dunia</strong>), memotong populasi siswa riil per rombel dan tingkat pada bulan kejadian tanpa mencampurnya ke dalam Mutasi Keluar reguler.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('active-students')}
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors shadow-2xs cursor-pointer self-start sm:self-auto"
+          >
+            <span>Buka di Siswa Aktif</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Filter & Search Bar */}
+        <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-1 max-w-md">
+            <div className="relative w-full">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={deceasedSearch}
+                onChange={(e) => setDeceasedSearch(e.target.value)}
+                placeholder="Cari nama siswa, NIS, NISN, atau penyebab..."
+                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            {deceasedSearch && (
+              <button
+                type="button"
+                onClick={() => setDeceasedSearch('')}
+                className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-bold px-2 py-1 cursor-pointer"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
+              <span className="font-semibold text-[11px]">Kelas:</span>
+              <select
+                value={deceasedKelasFilter}
+                onChange={(e) => setDeceasedKelasFilter(e.target.value)}
+                className="text-xs px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-medium cursor-pointer"
+              >
+                <option value="all">Semua Kelas ({siswaMeninggalList.length})</option>
+                {uniqueClassesMeninggal.map(cls => (
+                  <option key={cls} value={cls}>{cls}</option>
+                ))}
+              </select>
+            </div>
+
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 hidden md:inline ml-2">
+              Menampilkan {filteredSiswaMeninggal.length} dari {siswaMeninggalList.length} siswa
+            </span>
+          </div>
+        </div>
+
+        {/* Tabel Data Siswa Meninggal Dunia */}
+        {filteredSiswaMeninggal.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[11px] font-bold">
+                  <th className="py-3 px-4 w-12 text-center">No.</th>
+                  <th className="py-3 px-4">Data Siswa (Nama / NIS / NISN / JK)</th>
+                  <th className="py-3 px-4 w-36">Kelas Terakhir</th>
+                  <th className="py-3 px-4 w-44">Tanggal Meninggal</th>
+                  <th className="py-3 px-4 min-w-[220px]">Penyebab / Keterangan</th>
+                  <th className="py-3 px-4 w-44 text-right">Koneksi Statistik</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                {filteredSiswaMeninggal.map((student, idx) => {
+                  const tglMeninggal = getTanggalMeninggal(student);
+                  const kelasTerakhir = getKelasTerakhir(student);
+                  const penyebabKet = getPenyebabKeterangan(student);
+                  const formattedTgl = formatIndonesianDate(tglMeninggal);
+
+                  return (
+                    <tr
+                      key={student.id}
+                      className="hover:bg-rose-50/30 dark:hover:bg-rose-950/10 transition-colors group"
+                    >
+                      {/* No */}
+                      <td className="py-3.5 px-4 text-center font-bold text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200">
+                        {idx + 1}
+                      </td>
+
+                      {/* Data Siswa */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 font-extrabold shrink-0 overflow-hidden">
+                            {student.fotoUrl ? (
+                              <img
+                                src={student.fotoUrl}
+                                alt={student.namaLengkap}
+                                className="w-full h-full object-cover grayscale contrast-125"
+                              />
+                            ) : (
+                              <span>{(student.namaLengkap || 'S')[0]}</span>
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-extrabold text-slate-900 dark:text-slate-100 uppercase tracking-tight flex items-center gap-1.5 flex-wrap">
+                              <span>{student.namaLengkap}</span>
+                              <span className={cn(
+                                "px-1.5 py-0.2 rounded text-[10px] font-extrabold border",
+                                student.jenisKelamin === 'L'
+                                  ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300"
+                                  : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300"
+                              )}>
+                                {student.jenisKelamin === 'L' ? 'L' : 'P'}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5">
+                              <span>NIS: <strong className="font-semibold text-slate-700 dark:text-slate-300">{student.noInduk || '-'}</strong></span>
+                              <span>•</span>
+                              <span>NISN: <strong className="font-semibold text-slate-700 dark:text-slate-300">{student.nisn || '-'}</strong></span>
+                            </div>
+                            {student.tempatLahir && student.tanggalLahir && (
+                              <div className="text-[10px] text-slate-400 mt-0.5">
+                                Lahir: {student.tempatLahir}, {student.tanggalLahir}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Kelas Terakhir */}
+                      <td className="py-3.5 px-4">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-bold text-xs">
+                          <Layers className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                          <span>{kelasTerakhir}</span>
+                        </div>
+                      </td>
+
+                      {/* Tanggal Meninggal Dunia */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-1.5 text-slate-800 dark:text-slate-200 font-bold">
+                          <Calendar className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                          <span>{formattedTgl}</span>
+                        </div>
+                        {tglMeninggal !== '-' && (
+                          <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
+                            {tglMeninggal}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Penyebab / Keterangan */}
+                      <td className="py-3.5 px-4">
+                        <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-slate-300 text-xs leading-relaxed">
+                          {penyebabKet}
+                        </div>
+                      </td>
+
+                      {/* Koneksi Statistik & Aksi */}
+                      <td className="py-3.5 px-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('active-students')}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 hover:bg-[#003399] hover:text-white dark:hover:bg-blue-600 dark:hover:text-white text-[#003399] dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-bold text-xs transition-all shadow-2xs cursor-pointer group/btn"
+                          title="Lihat di Statistik Bulanan & Periodik Siswa Aktif"
+                        >
+                          <BarChart2 className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
+                          <span>Buka Statistik</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="p-10 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-3 text-slate-400">
+              <UserX className="w-7 h-7" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+              {deceasedSearch || deceasedKelasFilter !== 'all'
+                ? 'Tidak ada siswa yang cocok dengan filter'
+                : 'Belum ada data siswa berstatus Meninggal Dunia'}
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
+              {deceasedSearch || deceasedKelasFilter !== 'all'
+                ? 'Silakan sesuaikan kata kunci pencarian atau pilihan kelas terakhir.'
+                : 'Data siswa yang ditandai berstatus Meninggal Dunia akan otomatis tampil di sini dan terhubung dengan rekapitulasi Statistik Bulanan & Periodik.'}
+            </p>
+            {(deceasedSearch || deceasedKelasFilter !== 'all') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDeceasedSearch('');
+                  setDeceasedKelasFilter('all');
+                }}
+                className="mt-3 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200 cursor-pointer"
+              >
+                Reset Semua Filter
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Footer Div */}
+        <div className="p-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span>Status sinkron: Terhubung dengan <strong>Statistik Periodik Siswa Aktif</strong></span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab('active-students')}
+              className="text-[#003399] dark:text-blue-400 hover:underline font-bold inline-flex items-center gap-1 cursor-pointer"
+            >
+              <span>Periksa Rekap Perubahan Siswa Bulanan</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
