@@ -52,11 +52,16 @@ export const MutasiView: React.FC<MutasiViewProps> = ({
 
   const hiddenCountInOtherYears = allMutatedStudents.length - mutatedStudents.length;
 
-  const filteredMutated = mutatedStudents.filter(s => 
-    s.namaLengkap.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.noInduk.includes(searchTerm) ||
-    s.mutasi?.sekolahTujuan.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredMutated = mutatedStudents.filter(s => {
+    const term = (searchTerm || '').toLowerCase().trim();
+    if (!term) return true;
+    const nameMatch = (s.namaLengkap || '').toLowerCase().includes(term);
+    const noIndukMatch = (s.noInduk || '').toLowerCase().includes(term);
+    const nisnMatch = (s.nisn || '').toLowerCase().includes(term);
+    const targetMatch = (s.mutasi?.sekolahTujuan || '').toLowerCase().includes(term);
+    const reasonMatch = (s.mutasi?.alasan || '').toLowerCase().includes(term);
+    return nameMatch || noIndukMatch || nisnMatch || targetMatch || reasonMatch;
+  });
 
   const canManageMutation = currentRole !== 'umum' && (rolePermissions?.inputMutasi !== false);
 

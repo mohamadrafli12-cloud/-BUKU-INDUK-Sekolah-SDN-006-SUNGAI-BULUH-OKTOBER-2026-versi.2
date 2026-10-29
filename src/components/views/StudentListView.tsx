@@ -162,18 +162,20 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
   const filteredStudents = useMemo(() => {
     return students.filter((s) => {
       // Search matching
+      const term = searchTerm.trim().toLowerCase();
       const matchesSearch = 
-        searchTerm.trim() === '' ||
-        s.namaLengkap.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.noInduk.includes(searchTerm) ||
-        s.nisn.includes(searchTerm) ||
-        s.nik.includes(searchTerm) ||
-        s.ayah.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.ibu.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.kelurahanDesa.toLowerCase().includes(searchTerm.toLowerCase());
+        term === '' ||
+        (s.namaLengkap || '').toLowerCase().includes(term) ||
+        (s.noInduk || '').includes(searchTerm) ||
+        (s.nisn || '').includes(searchTerm) ||
+        (s.nik || '').includes(searchTerm) ||
+        (s.ayah?.nama || '').toLowerCase().includes(term) ||
+        (s.ibu?.nama || '').toLowerCase().includes(term) ||
+        (s.kelurahanDesa || '').toLowerCase().includes(term);
 
       // Filter matching
-      const matchesClass = selectedClass === 'ALL' || s.kelasSekarang === selectedClass || s.kelasSekarang.includes(selectedClass);
+      const currentClass = s.kelasSekarang || '';
+      const matchesClass = selectedClass === 'ALL' || currentClass === selectedClass || currentClass.includes(selectedClass);
       const matchesStatus = selectedStatus === 'ALL' || s.status === selectedStatus;
       const matchesGender = selectedGender === 'ALL' || s.jenisKelamin === selectedGender;
       const matchesReligion = selectedReligion === 'ALL' || s.agama === selectedReligion;
@@ -182,13 +184,15 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
     }).sort((a, b) => {
       let comparison = 0;
       if (sortBy === 'nama') {
-        comparison = a.namaLengkap.localeCompare(b.namaLengkap);
+        comparison = (a.namaLengkap || '').localeCompare(b.namaLengkap || '');
       } else if (sortBy === 'nis') {
-        comparison = a.noInduk.localeCompare(b.noInduk, undefined, { numeric: true });
+        comparison = (a.noInduk || '').localeCompare(b.noInduk || '', undefined, { numeric: true });
       } else if (sortBy === 'kelas') {
-        comparison = a.kelasSekarang.localeCompare(b.kelasSekarang);
+        comparison = (a.kelasSekarang || '').localeCompare(b.kelasSekarang || '');
       } else if (sortBy === 'tanggal') {
-        comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        comparison = timeA - timeB;
       }
       return sortOrder === 'asc' ? comparison : -comparison;
     });
