@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   X, 
   UserMinus, 
@@ -18,14 +18,16 @@ import {
   User,
   MapPin,
   Calendar,
-  FileCheck2
+  FileCheck2,
+  Layers
 } from 'lucide-react';
 import { Student, MutationRecord } from '../../types';
 import { useSchool } from '../../context/SchoolContext';
 import { compressImageFile } from '../../utils/imageCompressor';
 import { IjazahViewerModal } from './IjazahViewerModal';
 import { SuratPindahDocument } from '../common/SuratPindahDocument';
-import { getRomanMonth } from '../../lib/utils';
+import { getRomanMonth, cn } from '../../lib/utils';
+import { isKelas1Sampai6, getTingkatKelasNumber } from '../../utils/academicYearHelper';
 
 interface MutationModalProps {
   student: Student | null;
@@ -40,7 +42,7 @@ export const MutationModal: React.FC<MutationModalProps> = ({
   onClose,
   onSave,
 }) => {
-  const { cancelMutation, currentRole, rolePermissions, schoolProfile } = useSchool();
+  const { cancelMutation, currentRole, rolePermissions, schoolProfile, students } = useSchool();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<'form' | 'preview'>('form');
@@ -84,14 +86,39 @@ export const MutationModal: React.FC<MutationModalProps> = ({
     return `422.1 /SDN-006/SB/${roman}/${year}/ ${randomSeq}`;
   };
 
+  // Daftar rombel / kelas aktif sesuai data rombel sekolah & siswa aktif
+  const activeRombelList = useMemo(() => {
+    const fromProfile = (schoolProfile?.daftarKelas || []).filter(isKelas1Sampai6);
+    const fromStudents = (students || [])
+      .filter(s => s.status === 'Aktif')
+      .map(s => s.kelasSekarang)
+      .filter(Boolean)
+      .filter(isKelas1Sampai6);
+    const baseList = fromProfile.length > 0
+      ? fromProfile
+      : ['Kelas 1', 'Kelas 2', 'Kelas 3', 'Kelas 4', 'Kelas 5', 'Kelas 6'];
+
+    const combined = Array.from(new Set([...baseList, ...fromStudents]));
+    return combined.sort((a, b) => {
+      const tingkatA = getTingkatKelasNumber(a);
+      const tingkatB = getTingkatKelasNumber(b);
+      if (tingkatA !== tingkatB) return tingkatA - tingkatB;
+      return a.localeCompare(b, undefined, { numeric: true });
+    });
+  }, [schoolProfile?.daftarKelas, students]);
+
   useEffect(() => {
     if (student) {
       const todayISO = new Date().toISOString().split('T')[0];
       const defaultDate = student.mutasi?.tglMeninggalkan || student.mutasi?.dikeluarkanTanggal || todayISO;
 
-      // Extract numeric or raw class name (e.g. "Kelas 4" -> "4")
-      const currentClassRaw = student.mutasi?.dariKelas || student.kelasSekarang || '4';
-      const cleanClass = currentClassRaw.replace(/^kelas\s*/i, '').trim() || currentClassRaw;
+      // Extract numeric or raw class name, matched with active rombel list
+      const currentClassRaw = student.mutasi?.dariKelas || student.kelasSekarang || 'Kelas 4';
+      const cleanClassNum = currentClassRaw.replace(/^kelas\s*/i, '').trim();
+      const matchedRombel = 
+        activeRombelList.find(r => r.toLowerCase() === currentClassRaw.toLowerCase()) ||
+        activeRombelList.find(r => r.replace(/^kelas\s*/i, '').trim() === cleanClassNum) ||
+        currentClassRaw;
 
       // Default Parent / Guardian
       const ibuNama = student.ibu?.nama?.trim();
@@ -109,7 +136,7 @@ export const MutationModal: React.FC<MutationModalProps> = ({
       setFormData({
         tglMeninggalkan: defaultDate,
         dikeluarkanTanggal: student.mutasi?.dikeluarkanTanggal || defaultDate,
-        dariKelas: cleanClass,
+        dariKelas: matchedRombel,
         sekolahTujuan: student.mutasi?.sekolahTujuan || 'SD Negeri 182 Pekanbaru',
         desaKelurahanTujuan: student.mutasi?.desaKelurahanTujuan || 'Pasir Putih',
         kecamatanTujuan: student.mutasi?.kecamatanTujuan || 'Air Dingin',
@@ -129,7 +156,7 @@ export const MutationModal: React.FC<MutationModalProps> = ({
         tglUploadIjazah: student.mutasi?.tglUploadIjazah,
       });
 
-      setRestoreClassChoice(student.mutasi?.dariKelas || student.kelasSekarang || 'Kelas 1');
+      setRestoreClassChoice(matchedRombel || 'Kelas 1');
       setShowCancelConfirm(false);
       setUploadError(null);
       setActiveTab('form');
@@ -348,36 +375,88 @@ export const MutationModal: React.FC<MutationModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Kelas / Tingkat Terakhir Saat Pindah <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        required
-                        value={formData.dariKelas || ''}
-                        onChange={(e) => setFormData({ ...formData, dariKelas: e.target.value })}
-                        placeholder="Contoh: 4"
-                        className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-slate-800 dark:text-slate-100"
-                      />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block font-bold text-slate-700 dark:text-slate-300">
+                        Kelas / Tingkat Terakhir Saat Pindah <span className="text-rose-500">*</span>
+                      </label>
+                      <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                        <Layers className="w-3 h-3 text-orange-500" />
+                        <span>Daftar Rombel Aktif</span>
+                      </span>
                     </div>
-                    {/* Quick chips for class levels 1 - 6 */}
-                    <div className="flex items-center gap-1.5 mt-1.5">
-                      <span className="text-[10px] text-slate-400">Pilih Cepat:</span>
-                      {['1', '2', '3', '4', '5', '6'].map((lvl) => (
-                        <button
-                          key={lvl}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, dariKelas: lvl })}
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-colors ${
-                            formData.dariKelas === lvl
-                              ? 'bg-orange-600 text-white'
-                              : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-orange-50'
-                          }`}
-                        >
-                          {lvl}
-                        </button>
-                      ))}
+
+                    {/* Dropdown Pilihan Rombel / Kelas Aktif */}
+                    <div className="relative">
+                      <select
+                        required
+                        value={
+                          activeRombelList.includes(formData.dariKelas || '')
+                            ? formData.dariKelas
+                            : activeRombelList.find(r => r.replace(/^kelas\s*/i, '').trim() === formData.dariKelas?.trim())
+                            ? activeRombelList.find(r => r.replace(/^kelas\s*/i, '').trim() === formData.dariKelas?.trim())
+                            : formData.dariKelas || ''
+                        }
+                        onChange={(e) => setFormData({ ...formData, dariKelas: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-orange-500 focus:outline-hidden cursor-pointer"
+                      >
+                        <option value="" disabled>-- Pilih Rombel / Kelas Aktif --</option>
+                        {activeRombelList.map((rombel) => (
+                          <option key={rombel} value={rombel}>
+                            {rombel} (Tingkat {getTingkatKelasNumber(rombel)})
+                          </option>
+                        ))}
+                        {formData.dariKelas && !activeRombelList.includes(formData.dariKelas) && !activeRombelList.some(r => r.replace(/^kelas\s*/i, '').trim() === formData.dariKelas?.trim()) && (
+                          <option value={formData.dariKelas}>
+                            {formData.dariKelas} (Lainnya)
+                          </option>
+                        )}
+                      </select>
+                    </div>
+
+                    {/* Quick Selection Chips for Active Rombels */}
+                    <div className="mt-2 space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold">
+                        <span>Pilihan Cepat Rombel:</span>
+                        {student.kelasSekarang && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const match = 
+                                activeRombelList.find(r => r.toLowerCase() === student.kelasSekarang.toLowerCase()) || 
+                                activeRombelList.find(r => r.replace(/^kelas\s*/i, '').trim() === student.kelasSekarang.replace(/^kelas\s*/i, '').trim()) || 
+                                student.kelasSekarang;
+                              setFormData({ ...formData, dariKelas: match });
+                            }}
+                            className="text-orange-600 dark:text-orange-400 hover:underline font-bold cursor-pointer"
+                          >
+                            Kelas Asal: {student.kelasSekarang}
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {activeRombelList.map((rombel) => {
+                          const isSelected = 
+                            formData.dariKelas === rombel || 
+                            formData.dariKelas === rombel.replace(/^kelas\s*/i, '').trim() ||
+                            formData.dariKelas?.toLowerCase() === rombel.toLowerCase();
+
+                          return (
+                            <button
+                              key={rombel}
+                              type="button"
+                              onClick={() => setFormData({ ...formData, dariKelas: rombel })}
+                              className={cn(
+                                "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs",
+                                isSelected
+                                  ? "bg-orange-600 text-white shadow-xs scale-102 ring-2 ring-orange-400/50"
+                                  : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-orange-50 dark:hover:bg-slate-600 hover:border-orange-300"
+                              )}
+                            >
+                              {rombel}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -761,10 +840,7 @@ export const MutationModal: React.FC<MutationModalProps> = ({
                       onChange={(e) => setRestoreClassChoice(e.target.value)}
                       className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold"
                     >
-                      {(schoolProfile?.daftarKelas && schoolProfile.daftarKelas.length > 0
-                        ? schoolProfile.daftarKelas
-                        : ['Kelas 1', 'Kelas 2', 'Kelas 3', 'Kelas 4', 'Kelas 5', 'Kelas 6']
-                      ).map((cls) => (
+                      {activeRombelList.map((cls) => (
                         <option key={cls} value={cls}>
                           {cls}
                         </option>
