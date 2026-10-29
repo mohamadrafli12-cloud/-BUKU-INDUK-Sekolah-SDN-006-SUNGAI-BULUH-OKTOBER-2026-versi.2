@@ -1463,16 +1463,16 @@ export const initialStudents: Student[] = [
     tahunMasuk: '2024',
     fotoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=240&auto=format&fit=crop&q=80',
     mutasi: {
-      tglMeninggalkan: '2026-11-12',
+      tglMeninggalkan: '2026-10-12',
       dariKelas: 'Kelas 3',
       alasanPindah: 'Meninggal Dunia karena Sakit (DBD)',
-      dikeluarkanTanggal: '2026-11-12',
+      dikeluarkanTanggal: '2026-10-12',
       tempatSurat: 'Sungai Buluh',
-      keterangan: 'Meninggal dunia pada 12 November 2026 di RSUD Teluk Kuantan. Berkas buku induk diarsipkan khusus.',
+      keterangan: 'Meninggal dunia pada 12 Oktober 2026 di RSUD Teluk Kuantan. Berkas buku induk diarsipkan khusus.',
     },
     raport: [],
     createdAt: '2024-07-15T08:00:00Z',
-    updatedAt: '2026-11-12T10:00:00Z',
+    updatedAt: '2026-10-12T10:00:00Z',
   },
 ];
 

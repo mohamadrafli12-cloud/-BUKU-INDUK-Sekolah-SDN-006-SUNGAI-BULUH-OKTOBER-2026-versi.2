@@ -1255,17 +1255,26 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
           availableClasses={availableClasses}
           schoolProfile={schoolProfile}
           onSelectDetail={onSelectDetail}
+          onEditStudent={onEditStudent}
           onSelectRombelFilter={(rombel) => {
             setSelectedRombel(rombel);
             setSelectedTingkat('ALL');
             setSubTab('daftar');
             setCurrentPage(1);
+            setTimeout(() => {
+              const el = document.getElementById('daftar-siswa-aktif-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
           }}
           onSelectTingkatFilter={(tingkat) => {
             setSelectedTingkat(tingkat);
             setSelectedRombel('ALL');
             setSubTab('daftar');
             setCurrentPage(1);
+            setTimeout(() => {
+              const el = document.getElementById('daftar-siswa-aktif-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
           }}
         />
       )}
@@ -1315,7 +1324,7 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
       {/* TAB 1: DAFTAR SISWA AKTIF */}
       {/* ========================================================================= */}
       {subTab === 'daftar' && (
-        <div className="space-y-4">
+        <div id="daftar-siswa-aktif-section" className="space-y-4">
           {/* Filter Bar */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 print:hidden">
             <div className="relative flex-1">
@@ -3945,17 +3954,26 @@ export const ActiveStudentsView: React.FC<ActiveStudentsViewProps> = ({
             availableClasses={availableClasses}
             schoolProfile={schoolProfile}
             onSelectDetail={onSelectDetail}
+            onEditStudent={onEditStudent}
             onSelectRombelFilter={(rombel) => {
               setSelectedRombel(rombel);
               setSelectedTingkat('ALL');
               setSubTab('daftar');
               setCurrentPage(1);
+              setTimeout(() => {
+                const el = document.getElementById('daftar-siswa-aktif-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
             }}
             onSelectTingkatFilter={(tingkat) => {
               setSelectedTingkat(tingkat);
               setSelectedRombel('ALL');
               setSubTab('daftar');
               setCurrentPage(1);
+              setTimeout(() => {
+                const el = document.getElementById('daftar-siswa-aktif-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
             }}
             defaultCollapsed={false}
           />

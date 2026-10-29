@@ -403,8 +403,18 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               const mergedRiwayat = (s.riwayatBantuan && s.riwayatBantuan.length > 0)
                 ? s.riwayatBantuan
                 : (init?.riwayatBantuan || []);
+              let updatedMutasi = s.mutasi;
+              if (s.id === 'std-017' && s.mutasi?.tglMeninggalkan === '2026-11-12') {
+                updatedMutasi = {
+                  ...s.mutasi,
+                  tglMeninggalkan: '2026-10-12',
+                  dikeluarkanTanggal: '2026-10-12',
+                  keterangan: 'Meninggal dunia pada 12 Oktober 2026 di RSUD Teluk Kuantan. Berkas buku induk diarsipkan khusus.',
+                };
+              }
               return {
                 ...s,
+                mutasi: updatedMutasi,
                 diterimaDiKelas: sanitizeDiterimaDiKelas(s.diterimaDiKelas),
                 riwayatBantuan: mergedRiwayat.length > 0 ? mergedRiwayat : s.riwayatBantuan,
                 penerimaBantuan: s.penerimaBantuan || init?.penerimaBantuan,
