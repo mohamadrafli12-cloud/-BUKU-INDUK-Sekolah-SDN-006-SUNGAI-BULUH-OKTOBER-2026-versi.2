@@ -26,12 +26,19 @@ import {
   Edit3,
   Search,
   X,
-  ArrowRight
+  ArrowRight,
+  Trash2,
+  Plus,
+  ArrowRightLeft,
+  CheckSquare,
+  Square,
+  AlertTriangle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Student, SchoolProfile, Gender } from '../../types';
 import { cn, formatIndonesianDate } from '../../lib/utils';
 import { getAcademicYearStart, isKelas1Sampai6, getTingkatKelasNumber } from '../../utils/academicYearHelper';
+import { useSchool } from '../../context/SchoolContext';
 
 export interface AcademicMonthInfo {
   key: string; // YYYY-MM
@@ -127,9 +134,46 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
   // Sub-tab under detail-bulan: 'tingkat' | 'rombel' | 'siswa-masuk' | 'siswa-mutasi' | 'siswa-meninggal'
   const [activeSubSection, setActiveSubSection] = useState<'tingkat' | 'rombel' | 'siswa-masuk' | 'siswa-mutasi' | 'siswa-meninggal'>('tingkat');
 
+  // School context actions for adding/removing students
+  const { updateStudent, deleteStudent, addStudent, logActivity, students: allSchoolStudents } = useSchool();
+
   // State untuk Modal Lihat & Edit Siswa di Rombel yang Dipilih
   const [selectedRombelModal, setSelectedRombelModal] = useState<string | null>(null);
   const [rombelSearchQuery, setRombelSearchQuery] = useState<string>('');
+
+  // State Tambah Siswa ke Rombel
+  const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState<boolean>(false);
+  const [addStudentTab, setAddStudentTab] = useState<'pilih-ada' | 'tambah-baru'>('pilih-ada');
+  const [searchCandidateQuery, setSearchCandidateQuery] = useState<string>('');
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
+
+  // State Form Tambah Siswa Baru Langsung ke Rombel
+  const [newStudentFormData, setNewStudentFormData] = useState({
+    namaLengkap: '',
+    namaPanggilan: '',
+    jenisKelamin: 'L' as Gender,
+    noInduk: '',
+    nisn: '',
+    nik: '',
+    tempatLahir: schoolProfile.desaKelurahan || 'Sungai Buluh',
+    tanggalLahir: '2019-01-01',
+    namaOrangTua: '',
+    alamat: `Dusun Suka Maju, Desa ${schoolProfile.desaKelurahan || 'Sungai Buluh'}`,
+  });
+
+  // State Hapus / Keluarkan Siswa dari Rombel
+  const [studentToRemove, setStudentToRemove] = useState<Student | null>(null);
+  const [removeMode, setRemoveMode] = useState<'keluarkan' | 'pindah' | 'hapus-permanen'>('keluarkan');
+  const [targetMoveClass, setTargetMoveClass] = useState<string>('Kelas 1');
+
+  // Multi-selection (Bulk) siswa di dalam rombel aktif
+  const [selectedRombelStudentIds, setSelectedRombelStudentIds] = useState<string[]>([]);
+  const [isBulkRemoveModalOpen, setIsBulkRemoveModalOpen] = useState<boolean>(false);
+  const [bulkActionType, setBulkActionType] = useState<'keluarkan' | 'pindah'>('keluarkan');
+  const [bulkTargetClass, setBulkTargetClass] = useState<string>('Kelas 1');
+
+  // Toast / feedback message
+  const [rombelActionFeedback, setRombelActionFeedback] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
 
   // Generate 12 months for the Indonesian Academic Year (Juli startYear to Juni endYear)
   const startYear = getAcademicYearStart(activeTP);
@@ -476,6 +520,193 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
       s.nik?.toLowerCase().includes(q)
     );
   }, [studentsInSelectedRombel, rombelSearchQuery]);
+
+  // Calon siswa yang dapat ditambahkan ke rombel yang dipilih (siswa yang saat ini bukan di rombel ini)
+  const candidateStudentsForAdd = useMemo(() => {
+    if (!selectedRombelModal) return [];
+    const sourceList = (allSchoolStudents && allSchoolStudents.length > 0) ? allSchoolStudents : students;
+    return sourceList.filter(s => s.kelasSekarang !== selectedRombelModal && s.status !== 'Meninggal' && s.status !== 'Mutasi Keluar');
+  }, [allSchoolStudents, students, selectedRombelModal]);
+
+  const filteredCandidateStudents = useMemo(() => {
+    if (!searchCandidateQuery.trim()) return candidateStudentsForAdd;
+    const q = searchCandidateQuery.toLowerCase();
+    return candidateStudentsForAdd.filter(s => 
+      s.namaLengkap.toLowerCase().includes(q) ||
+      s.namaPanggilan?.toLowerCase().includes(q) ||
+      s.nisn?.toLowerCase().includes(q) ||
+      s.noInduk?.toLowerCase().includes(q) ||
+      s.kelasSekarang?.toLowerCase().includes(q)
+    );
+  }, [candidateStudentsForAdd, searchCandidateQuery]);
+
+  // Handler: Tambahkan siswa terdaftar ke rombel ini
+  const handleAddExistingStudent = (studentId: string) => {
+    if (!selectedRombelModal) return;
+    const sourceList = (allSchoolStudents && allSchoolStudents.length > 0) ? allSchoolStudents : students;
+    const target = sourceList.find(s => s.id === studentId);
+    if (!target) return;
+
+    updateStudent(studentId, {
+      kelasSekarang: selectedRombelModal,
+      status: target.status === 'Belum Masuk SD' ? 'Aktif' : target.status,
+      tahunPelajaranKelasSekarang: activeTP,
+    });
+
+    logActivity('EDIT', `Memasukkan siswa ${target.namaLengkap} ke dalam rombel ${selectedRombelModal} (TP ${activeTP})`);
+    setRombelActionFeedback({
+      message: `Siswa ${target.namaLengkap} berhasil dimasukkan ke ${selectedRombelModal}!`,
+      type: 'success',
+    });
+    setTimeout(() => setRombelActionFeedback(null), 4000);
+  };
+
+  // Handler: Tambahkan banyak siswa terdaftar sekaligus
+  const handleBulkAddExistingStudents = () => {
+    if (!selectedRombelModal || selectedCandidateIds.length === 0) return;
+    const sourceList = (allSchoolStudents && allSchoolStudents.length > 0) ? allSchoolStudents : students;
+
+    selectedCandidateIds.forEach(id => {
+      const target = sourceList.find(s => s.id === id);
+      if (target) {
+        updateStudent(id, {
+          kelasSekarang: selectedRombelModal,
+          status: target.status === 'Belum Masuk SD' ? 'Aktif' : target.status,
+          tahunPelajaranKelasSekarang: activeTP,
+        });
+      }
+    });
+
+    logActivity('EDIT', `Memasukkan ${selectedCandidateIds.length} siswa ke dalam rombel ${selectedRombelModal} (TP ${activeTP})`);
+    setRombelActionFeedback({
+      message: `${selectedCandidateIds.length} siswa berhasil dimasukkan ke ${selectedRombelModal}!`,
+      type: 'success',
+    });
+    setSelectedCandidateIds([]);
+    setIsAddStudentModalOpen(false);
+    setTimeout(() => setRombelActionFeedback(null), 4000);
+  };
+
+  // Handler: Tambah siswa baru langsung ke rombel
+  const handleCreateAndAddNewStudent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedRombelModal || !newStudentFormData.namaLengkap.trim()) return;
+
+    const currentYear = new Date().getFullYear();
+    const sourceList = (allSchoolStudents && allSchoolStudents.length > 0) ? allSchoolStudents : students;
+    addStudent({
+      namaLengkap: newStudentFormData.namaLengkap.trim(),
+      namaPanggilan: newStudentFormData.namaPanggilan.trim() || newStudentFormData.namaLengkap.trim().split(' ')[0],
+      jenisKelamin: newStudentFormData.jenisKelamin,
+      noInduk: newStudentFormData.noInduk.trim() || `${currentYear}${String(sourceList.length + 1).padStart(3, '0')}`,
+      nisn: newStudentFormData.nisn.trim() || `0${Math.floor(100000000 + Math.random() * 900000000)}`,
+      nik: newStudentFormData.nik.trim() || '1409050000000000',
+      tempatLahir: newStudentFormData.tempatLahir,
+      tanggalLahir: newStudentFormData.tanggalLahir,
+      alamat: newStudentFormData.alamat,
+      ayah: {
+        nama: newStudentFormData.namaOrangTua.trim() || 'Orang Tua Siswa',
+      },
+      kelasSekarang: selectedRombelModal,
+      status: 'Aktif',
+      tahunMasuk: String(startYear),
+      tahunPelajaranKelasSekarang: activeTP,
+      diterimaDiKelas: selectedRombelModal,
+      tanggalDiterima: `${startYear}-07-15`,
+    });
+
+    logActivity('TAMBAH', `Mendaftarkan siswa baru ${newStudentFormData.namaLengkap} langsung ke ${selectedRombelModal}`);
+    setRombelActionFeedback({
+      message: `Siswa baru ${newStudentFormData.namaLengkap} berhasil didaftarkan ke ${selectedRombelModal}!`,
+      type: 'success',
+    });
+    setNewStudentFormData({
+      namaLengkap: '',
+      namaPanggilan: '',
+      jenisKelamin: 'L',
+      noInduk: '',
+      nisn: '',
+      nik: '',
+      tempatLahir: schoolProfile.desaKelurahan || 'Sungai Buluh',
+      tanggalLahir: '2019-01-01',
+      namaOrangTua: '',
+      alamat: `Dusun Suka Maju, Desa ${schoolProfile.desaKelurahan || 'Sungai Buluh'}`,
+    });
+    setIsAddStudentModalOpen(false);
+    setTimeout(() => setRombelActionFeedback(null), 4000);
+  };
+
+  // Handler: Konfirmasi Hapus / Keluarkan Siswa Tunggal
+  const handleConfirmRemoveStudent = () => {
+    if (!studentToRemove || !selectedRombelModal) return;
+    const studentName = studentToRemove.namaLengkap;
+
+    if (removeMode === 'keluarkan') {
+      updateStudent(studentToRemove.id, {
+        kelasSekarang: 'Belum Masuk SD',
+        status: 'Belum Masuk SD',
+      });
+      logActivity('EDIT', `Mengeluarkan siswa ${studentName} dari rombel ${selectedRombelModal} (diubah ke Tanpa Rombel / Belum Masuk SD)`);
+      setRombelActionFeedback({
+        message: `Siswa ${studentName} berhasil dikeluarkan dari ${selectedRombelModal}. Data siswa tetap tersimpan di Buku Induk.`,
+        type: 'info',
+      });
+    } else if (removeMode === 'pindah') {
+      updateStudent(studentToRemove.id, {
+        kelasSekarang: targetMoveClass,
+      });
+      logActivity('EDIT', `Memindahkan siswa ${studentName} dari rombel ${selectedRombelModal} ke ${targetMoveClass}`);
+      setRombelActionFeedback({
+        message: `Siswa ${studentName} berhasil dipindahkan ke ${targetMoveClass}!`,
+        type: 'success',
+      });
+    } else if (removeMode === 'hapus-permanen') {
+      deleteStudent(studentToRemove.id);
+      logActivity('HAPUS', `Menghapus data siswa ${studentName} secara permanen dari database`);
+      setRombelActionFeedback({
+        message: `Data siswa ${studentName} berhasil dihapus permanen.`,
+        type: 'error',
+      });
+    }
+
+    setStudentToRemove(null);
+    setTimeout(() => setRombelActionFeedback(null), 4000);
+  };
+
+  // Handler: Konfirmasi Hapus / Keluarkan Siswa Masal
+  const handleConfirmBulkRemove = () => {
+    if (!selectedRombelModal || selectedRombelStudentIds.length === 0) return;
+    const count = selectedRombelStudentIds.length;
+
+    if (bulkActionType === 'keluarkan') {
+      selectedRombelStudentIds.forEach(id => {
+        updateStudent(id, {
+          kelasSekarang: 'Belum Masuk SD',
+          status: 'Belum Masuk SD',
+        });
+      });
+      logActivity('EDIT', `Mengeluarkan ${count} siswa secara masal dari rombel ${selectedRombelModal}`);
+      setRombelActionFeedback({
+        message: `${count} siswa berhasil dikeluarkan dari ${selectedRombelModal}.`,
+        type: 'info',
+      });
+    } else {
+      selectedRombelStudentIds.forEach(id => {
+        updateStudent(id, {
+          kelasSekarang: bulkTargetClass,
+        });
+      });
+      logActivity('EDIT', `Memindahkan ${count} siswa dari rombel ${selectedRombelModal} ke ${bulkTargetClass}`);
+      setRombelActionFeedback({
+        message: `${count} siswa berhasil dipindahkan ke ${bulkTargetClass}!`,
+        type: 'success',
+      });
+    }
+
+    setSelectedRombelStudentIds([]);
+    setIsBulkRemoveModalOpen(false);
+    setTimeout(() => setRombelActionFeedback(null), 4000);
+  };
 
   // Breakdown Jumlah Siswa di Rombel for the selected month
   const rombelStats: MonthlyRombelStat[] = useMemo(() => {
@@ -1689,15 +1920,96 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setSelectedRombelModal(null)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                title="Tutup dialog"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddStudentModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm cursor-pointer transition-all active:scale-95"
+                  title="Tambah siswa ke dalam rombel ini"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Tambah Siswa</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedRombelModal(null);
+                    setSelectedRombelStudentIds([]);
+                  }}
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  title="Tutup dialog"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
+
+            {/* Notification / Feedback Banner */}
+            {rombelActionFeedback && (
+              <div className={cn(
+                "px-4 py-2.5 flex items-center justify-between text-xs font-semibold border-b animate-in fade-in duration-200",
+                rombelActionFeedback.type === 'success' && "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
+                rombelActionFeedback.type === 'error' && "bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-800",
+                rombelActionFeedback.type === 'info' && "bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+              )}>
+                <div className="flex items-center gap-2">
+                  {rombelActionFeedback.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+                  {rombelActionFeedback.type === 'error' && <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />}
+                  {rombelActionFeedback.type === 'info' && <AlertCircle className="w-4 h-4 text-blue-600 shrink-0" />}
+                  <span>{rombelActionFeedback.message}</span>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => setRombelActionFeedback(null)}
+                  className="p-1 hover:opacity-70 text-xs font-bold cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* Bulk Action Toolbar */}
+            {selectedRombelStudentIds.length > 0 && (
+              <div className="px-4 py-2.5 bg-amber-50 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-900/60 flex items-center justify-between gap-2 flex-wrap text-xs animate-in fade-in duration-150">
+                <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-bold">
+                  <span className="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center text-[11px] font-black">
+                    {selectedRombelStudentIds.length}
+                  </span>
+                  <span>Siswa dipilih di {selectedRombelModal}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkActionType('keluarkan');
+                      setIsBulkRemoveModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold shadow-xs cursor-pointer transition-all active:scale-95 text-xs"
+                  >
+                    <UserMinus className="w-3.5 h-3.5" />
+                    <span>Keluarkan Terpilih</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkActionType('pindah');
+                      setIsBulkRemoveModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-xs cursor-pointer transition-all active:scale-95 text-xs"
+                  >
+                    <ArrowRightLeft className="w-3.5 h-3.5" />
+                    <span>Pindahkan Kelas</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRombelStudentIds([])}
+                    className="px-2.5 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg font-bold cursor-pointer transition-colors text-xs"
+                  >
+                    Batal Pilih
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Quick Stats & Search Bar */}
             <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
@@ -1711,6 +2023,14 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                 <span className="px-3 py-1.5 rounded-xl bg-pink-50 dark:bg-pink-950/40 text-pink-700 dark:text-pink-300 font-bold">
                   Perempuan: <strong>{studentsInSelectedRombel.filter(s => s.jenisKelamin === 'P').length}</strong>
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setIsAddStudentModalOpen(true)}
+                  className="sm:hidden px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold inline-flex items-center gap-1 text-xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Tambah</span>
+                </button>
               </div>
 
               <div className="relative w-full sm:w-72">
@@ -1737,7 +2057,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
             {/* Note banner */}
             <div className="px-4 py-2 bg-blue-50/60 dark:bg-blue-950/30 border-b border-blue-100 dark:border-blue-900/40 text-[11px] text-blue-700 dark:text-blue-300 flex items-center justify-between">
               <span>
-                💡 Siswa yang telah mutasi keluar atau meninggal sebelum/pada bulan {selectedMonthInfo.fullName} otomatis dihilangkan dari rombel aktif.
+                💡 Anda dapat menambah siswa baru/terdaftar ke rombel ini, atau mengeluarkan/menghapus siswa melalui tombol aksi di tabel.
               </span>
               <span className="font-semibold">{filteredModalStudents.length} siswa aktif</span>
             </div>
@@ -1750,27 +2070,78 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                   <p className="font-bold text-slate-700 dark:text-slate-300">
                     {rombelSearchQuery ? `Tidak ada siswa di ${selectedRombelModal} yang cocok dengan pencarian.` : `Belum ada siswa aktif terdaftar di ${selectedRombelModal}.`}
                   </p>
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    {rombelSearchQuery ? 'Coba kata kunci pencarian yang lain.' : 'Siswa yang telah mutasi keluar disaring berdasarkan tanggal mutasi.'}
+                  <p className="text-[11px] text-slate-400 mt-1 mb-4">
+                    {rombelSearchQuery ? 'Coba kata kunci pencarian yang lain.' : 'Gunakan tombol "+ Tambah Siswa" untuk memasukkan siswa ke rombel ini.'}
                   </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddStudentModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-md cursor-pointer transition-all active:scale-95"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>Tambah Siswa ke {selectedRombelModal}</span>
+                  </button>
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700 font-extrabold">
+                        <th className="py-2.5 px-3 text-center w-10">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (filteredModalStudents.length > 0 && filteredModalStudents.every(s => selectedRombelStudentIds.includes(s.id))) {
+                                setSelectedRombelStudentIds([]);
+                              } else {
+                                setSelectedRombelStudentIds(filteredModalStudents.map(s => s.id));
+                              }
+                            }}
+                            className="p-1 hover:text-blue-600 cursor-pointer"
+                            title="Pilih Semua Siswa"
+                          >
+                            {filteredModalStudents.length > 0 && filteredModalStudents.every(s => selectedRombelStudentIds.includes(s.id)) ? (
+                              <CheckSquare className="w-4 h-4 text-blue-600" />
+                            ) : (
+                              <Square className="w-4 h-4 text-slate-400" />
+                            )}
+                          </button>
+                        </th>
                         <th className="py-2.5 px-3 text-center w-12">No</th>
                         <th className="py-2.5 px-3">Nama Siswa</th>
                         <th className="py-2.5 px-3">NIS / NISN</th>
                         <th className="py-2.5 px-3 text-center">Jenis Kelamin</th>
                         <th className="py-2.5 px-3">Tempat, Tanggal Lahir</th>
                         <th className="py-2.5 px-3 text-center">Status</th>
-                        <th className="py-2.5 px-3 text-center w-40">Aksi & Edit</th>
+                        <th className="py-2.5 px-3 text-center w-52">Aksi</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
                       {filteredModalStudents.map((s, idx) => (
-                        <tr key={s.id} className="hover:bg-blue-50/40 dark:hover:bg-slate-800/40 transition-colors">
+                        <tr 
+                          key={s.id} 
+                          className={cn(
+                            "hover:bg-blue-50/40 dark:hover:bg-slate-800/40 transition-colors",
+                            selectedRombelStudentIds.includes(s.id) && "bg-blue-50/60 dark:bg-blue-950/30"
+                          )}
+                        >
+                          <td className="py-2.5 px-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedRombelStudentIds(prev =>
+                                  prev.includes(s.id) ? prev.filter(x => x !== s.id) : [...prev, s.id]
+                                );
+                              }}
+                              className="p-1 hover:text-blue-600 cursor-pointer"
+                            >
+                              {selectedRombelStudentIds.includes(s.id) ? (
+                                <CheckSquare className="w-4 h-4 text-blue-600" />
+                              ) : (
+                                <Square className="w-4 h-4 text-slate-400" />
+                              )}
+                            </button>
+                          </td>
                           <td className="py-2.5 px-3 text-center text-slate-400 font-mono">{idx + 1}</td>
                           <td className="py-2.5 px-3">
                             <div className="flex items-center gap-2.5">
@@ -1845,6 +2216,18 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                                   <span>Detail</span>
                                 </button>
                               )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setStudentToRemove(s);
+                                  setRemoveMode('keluarkan');
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 rounded-lg text-xs font-bold border border-rose-200 dark:border-rose-800 shadow-xs cursor-pointer active:scale-95 transition-all"
+                                title={`Hapus atau keluarkan ${s.namaLengkap} dari rombel ini`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Hapus</span>
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -1863,7 +2246,18 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setSelectedRombelModal(null)}
+                  onClick={() => setIsAddStudentModalOpen(true)}
+                  className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs cursor-pointer transition-all active:scale-95"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Tambah Siswa</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedRombelModal(null);
+                    setSelectedRombelStudentIds([]);
+                  }}
                   className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
                 >
                   Tutup
@@ -1874,6 +2268,7 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                     onClick={() => {
                       const rombel = selectedRombelModal;
                       setSelectedRombelModal(null);
+                      setSelectedRombelStudentIds([]);
                       onSelectRombelFilter(rombel);
                     }}
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black bg-[#003399] hover:bg-blue-800 text-white shadow-md cursor-pointer transition-all active:scale-95"
@@ -1884,6 +2279,545 @@ export const MonthlyActiveStudentsSummaryCard: React.FC<MonthlyActiveStudentsSum
                 )}
               </div>
             </div>
+
+            {/* SUB-MODAL 1: TAMBAH SISWA KE DALAM ROMBEL INI */}
+            {isAddStudentModalOpen && (
+              <div 
+                className="fixed inset-0 z-60 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-150"
+                onClick={() => setIsAddStudentModalOpen(false)}
+              >
+                <div 
+                  className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Sub-modal Header */}
+                  <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 bg-emerald-50/60 dark:bg-emerald-950/40 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black shadow-sm shrink-0">
+                        <UserPlus className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black text-slate-900 dark:text-slate-100">
+                          Tambah Siswa ke {selectedRombelModal}
+                        </h4>
+                        <p className="text-xs text-slate-500">
+                          Pilih siswa terdaftar yang belum masuk kelas atau daftarkan siswa baru
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddStudentModalOpen(false)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Navigation Tabs */}
+                  <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 px-4 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setAddStudentTab('existing')}
+                      className={cn(
+                        "px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2",
+                        addStudentTab === 'existing'
+                          ? "border-emerald-600 text-emerald-700 dark:text-emerald-400 bg-white dark:bg-slate-900 rounded-t-lg"
+                          : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                      )}
+                    >
+                      <Users className="w-4 h-4" />
+                      <span>Pilih dari Siswa Terdaftar ({candidateStudentsForAdd.length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAddStudentTab('new')}
+                      className={cn(
+                        "px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2",
+                        addStudentTab === 'new'
+                          ? "border-emerald-600 text-emerald-700 dark:text-emerald-400 bg-white dark:bg-slate-900 rounded-t-lg"
+                          : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+                      )}
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Daftarkan Siswa Baru Langsung</span>
+                    </button>
+                  </div>
+
+                  {/* Tab 1: Existing Students List */}
+                  {addStudentTab === 'existing' && (
+                    <div className="p-4 flex-1 overflow-y-auto flex flex-col gap-3">
+                      <div className="relative">
+                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          value={searchCandidateQuery}
+                          onChange={(e) => setSearchCandidateQuery(e.target.value)}
+                          placeholder="Cari nama, NIS, atau kelas asal..."
+                          className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
+                        />
+                      </div>
+
+                      {selectedCandidateIds.length > 0 && (
+                        <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-between text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                          <span>{selectedCandidateIds.length} siswa dipilih untuk dimasukkan</span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCandidateIds([])}
+                              className="px-2.5 py-1 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg text-xs hover:bg-slate-100"
+                            >
+                              Reset
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleBulkAddExistingStudents}
+                              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-black shadow-xs cursor-pointer"
+                            >
+                              Tambahkan Semua Terpilih
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800 max-h-80 overflow-y-auto">
+                        {filteredCandidateStudents.length === 0 ? (
+                          <div className="py-10 text-center text-xs text-slate-400">
+                            {candidateStudentsForAdd.length === 0
+                              ? 'Tidak ada siswa lain yang tersedia untuk dimasukkan.'
+                              : 'Tidak ditemukan siswa yang cocok dengan kata kunci.'}
+                          </div>
+                        ) : (
+                          filteredCandidateStudents.map((cand) => {
+                            const isSelected = selectedCandidateIds.includes(cand.id);
+                            return (
+                              <div
+                                key={cand.id}
+                                className={cn(
+                                  "p-3 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors",
+                                  isSelected && "bg-emerald-50/50 dark:bg-emerald-950/20"
+                                )}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedCandidateIds(prev => [...prev, cand.id]);
+                                      } else {
+                                        setSelectedCandidateIds(prev => prev.filter(x => x !== cand.id));
+                                      }
+                                    }}
+                                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                  />
+                                  <div>
+                                    <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                                      {cand.namaLengkap}
+                                    </p>
+                                    <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                                      <span>NIS: {cand.noInduk || '-'}</span>
+                                      <span>•</span>
+                                      <span>{cand.jenisKelamin === 'L' ? 'L' : 'P'}</span>
+                                      <span>•</span>
+                                      <span className="px-1.5 py-0.2 rounded text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold">
+                                        Saat ini: {cand.kelasSekarang || 'Tanpa Kelas'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddExistingStudent(cand.id)}
+                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-all active:scale-95 shadow-xs"
+                                >
+                                  + Tambah
+                                </button>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tab 2: Form Daftarkan Siswa Baru Langsung */}
+                  {addStudentTab === 'new' && (
+                    <form onSubmit={handleCreateAndAddNewStudent} className="p-4 flex-1 overflow-y-auto space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            Nama Lengkap Siswa *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={newStudentFormData.namaLengkap}
+                            onChange={(e) => setNewStudentFormData({ ...newStudentFormData, namaLengkap: e.target.value })}
+                            placeholder="Contoh: Ahmad Rizki"
+                            className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            Nama Panggilan
+                          </label>
+                          <input
+                            type="text"
+                            value={newStudentFormData.namaPanggilan}
+                            onChange={(e) => setNewStudentFormData({ ...newStudentFormData, namaPanggilan: e.target.value })}
+                            placeholder="Contoh: Rizki"
+                            className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            Jenis Kelamin *
+                          </label>
+                          <select
+                            value={newStudentFormData.jenisKelamin}
+                            onChange={(e) => setNewStudentFormData({ ...newStudentFormData, jenisKelamin: e.target.value as Gender })}
+                            className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                          >
+                            <option value="L">Laki-laki (L)</option>
+                            <option value="P">Perempuan (P)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            NIS / No. Induk
+                          </label>
+                          <input
+                            type="text"
+                            value={newStudentFormData.noInduk}
+                            onChange={(e) => setNewStudentFormData({ ...newStudentFormData, noInduk: e.target.value })}
+                            placeholder="Otomatis jika kosong"
+                            className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            NISN
+                          </label>
+                          <input
+                            type="text"
+                            value={newStudentFormData.nisn}
+                            onChange={(e) => setNewStudentFormData({ ...newStudentFormData, nisn: e.target.value })}
+                            placeholder="10 digit nomor"
+                            className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            Tempat Lahir
+                          </label>
+                          <input
+                            type="text"
+                            value={newStudentFormData.tempatLahir}
+                            onChange={(e) => setNewStudentFormData({ ...newStudentFormData, tempatLahir: e.target.value })}
+                            className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            Tanggal Lahir
+                          </label>
+                          <input
+                            type="date"
+                            value={newStudentFormData.tanggalLahir}
+                            onChange={(e) => setNewStudentFormData({ ...newStudentFormData, tanggalLahir: e.target.value })}
+                            className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            Nama Orang Tua / Wali
+                          </label>
+                          <input
+                            type="text"
+                            value={newStudentFormData.namaOrangTua}
+                            onChange={(e) => setNewStudentFormData({ ...newStudentFormData, namaOrangTua: e.target.value })}
+                            placeholder="Nama ayah atau ibu"
+                            className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            Alamat
+                          </label>
+                          <input
+                            type="text"
+                            value={newStudentFormData.alamat}
+                            onChange={(e) => setNewStudentFormData({ ...newStudentFormData, alamat: e.target.value })}
+                            placeholder="Alamat tempat tinggal"
+                            className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl text-xs text-emerald-800 dark:text-emerald-300">
+                        Siswa ini akan langsung didaftarkan dengan status <strong>Aktif</strong> pada rombel <strong>{selectedRombelModal}</strong> untuk Tahun Pelajaran <strong>{activeTP}</strong>.
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsAddStudentModalOpen(false)}
+                          className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 cursor-pointer"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-4 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-md cursor-pointer transition-all active:scale-95"
+                        >
+                          Simpan & Masukkan ke {selectedRombelModal}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* SUB-MODAL 2: HAPUS / KELUARKAN SISWA TUNGGAL */}
+            {studentToRemove && (
+              <div 
+                className="fixed inset-0 z-60 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-150"
+                onClick={() => setStudentToRemove(null)}
+              >
+                <div 
+                  className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-lg w-full p-5 overflow-hidden"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                      <Trash2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-black text-slate-900 dark:text-slate-100">
+                        Keluarkan / Hapus Siswa
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        Pilih opsi pengelolaan untuk siswa dari rombel {selectedRombelModal}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 mb-4 text-xs">
+                    <p className="font-black text-slate-900 dark:text-slate-100 text-sm">
+                      {studentToRemove.namaLengkap}
+                    </p>
+                    <p className="text-slate-500 mt-0.5">
+                      NIS: {studentToRemove.noInduk || '-'} • NISN: {studentToRemove.nisn || '-'} • JK: {studentToRemove.jenisKelamin === 'L' ? 'Laki-laki' : 'Perempuan'}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2.5 mb-5 text-xs">
+                    {/* Opsi 1: Keluarkan dari rombel */}
+                    <label 
+                      onClick={() => setRemoveMode('keluarkan')}
+                      className={cn(
+                        "flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all",
+                        removeMode === 'keluarkan' 
+                          ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/30" 
+                          : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="removeAction"
+                        checked={removeMode === 'keluarkan'}
+                        onChange={() => setRemoveMode('keluarkan')}
+                        className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div>
+                        <p className="font-bold text-slate-900 dark:text-slate-100">
+                          Keluarkan dari {selectedRombelModal} (Disarankan)
+                        </p>
+                        <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5">
+                          Siswa akan dilepas dari rombel ini (diubah menjadi Tanpa Rombel). Data Buku Induk siswa tetap tersimpan aman.
+                        </p>
+                      </div>
+                    </label>
+
+                    {/* Opsi 2: Pindahkan ke rombel lain */}
+                    <label 
+                      onClick={() => setRemoveMode('pindah')}
+                      className={cn(
+                        "flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all",
+                        removeMode === 'pindah' 
+                          ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/30" 
+                          : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="removeAction"
+                        checked={removeMode === 'pindah'}
+                        onChange={() => setRemoveMode('pindah')}
+                        className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div className="flex-1">
+                        <p className="font-bold text-slate-900 dark:text-slate-100">
+                          Pindahkan ke Kelas / Rombel Lain
+                        </p>
+                        <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5 mb-2">
+                          Pindahkan siswa langsung ke kelas tujuan tanpa menghapusnya dari data sekolah.
+                        </p>
+                        {removeMode === 'pindah' && (
+                          <select
+                            value={targetMoveClass}
+                            onChange={(e) => setTargetMoveClass(e.target.value)}
+                            className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {availableClasses.filter(c => c !== selectedRombelModal).map(c => (
+                              <option key={c} value={c}>
+                                {c} (Tingkat {getTingkatKelasNumber(c)})
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    </label>
+
+                    {/* Opsi 3: Hapus permanen */}
+                    <label 
+                      onClick={() => setRemoveMode('hapus-permanen')}
+                      className={cn(
+                        "flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all",
+                        removeMode === 'hapus-permanen' 
+                          ? "border-rose-500 bg-rose-50/50 dark:bg-rose-950/30" 
+                          : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="removeAction"
+                        checked={removeMode === 'hapus-permanen'}
+                        onChange={() => setRemoveMode('hapus-permanen')}
+                        className="mt-0.5 text-rose-600 focus:ring-rose-500"
+                      />
+                      <div>
+                        <p className="font-bold text-rose-700 dark:text-rose-400">
+                          Hapus Permanen dari Database Sekolah
+                        </p>
+                        <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5">
+                          Tindakan ini akan menghapus seluruh data siswa dari aplikasi sekolah secara permanen.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setStudentToRemove(null)}
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmRemoveStudent}
+                      className={cn(
+                        "px-4 py-2 rounded-xl text-xs font-black text-white shadow-md cursor-pointer transition-all active:scale-95",
+                        removeMode === 'hapus-permanen' ? "bg-rose-600 hover:bg-rose-700" : "bg-blue-600 hover:bg-blue-700"
+                      )}
+                    >
+                      {removeMode === 'hapus-permanen' 
+                        ? 'Hapus Permanen' 
+                        : removeMode === 'pindah' 
+                          ? `Pindahkan ke ${targetMoveClass}` 
+                          : `Keluarkan dari ${selectedRombelModal}`}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SUB-MODAL 3: KELUARKAN / PINDAHKAN SISWA TERPILIH (BULK ACTION) */}
+            {isBulkRemoveModalOpen && (
+              <div 
+                className="fixed inset-0 z-60 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-150"
+                onClick={() => setIsBulkRemoveModalOpen(false)}
+              >
+                <div 
+                  className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-md w-full p-5 overflow-hidden"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={cn(
+                      "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+                      bulkActionType === 'keluarkan' ? "bg-rose-100 dark:bg-rose-950 text-rose-600" : "bg-blue-100 dark:bg-blue-950 text-blue-600"
+                    )}>
+                      {bulkActionType === 'keluarkan' ? <UserMinus className="w-5 h-5" /> : <ArrowRightLeft className="w-5 h-5" />}
+                    </div>
+                    <div>
+                      <h4 className="text-base font-black text-slate-900 dark:text-slate-100">
+                        {bulkActionType === 'keluarkan' ? 'Keluarkan Siswa Terpilih' : 'Pindahkan Siswa Terpilih'}
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        {selectedRombelStudentIds.length} siswa dipilih dari {selectedRombelModal}
+                      </p>
+                    </div>
+                  </div>
+
+                  {bulkActionType === 'keluarkan' ? (
+                    <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl text-xs text-amber-800 dark:text-amber-300 mb-4">
+                      Apakah Anda yakin ingin mengeluarkan <strong>{selectedRombelStudentIds.length} siswa</strong> dari kelas <strong>{selectedRombelModal}</strong>? Siswa yang dikeluarkan akan berstatus Belum Masuk SD / Tanpa Rombel dan tetap ada di Buku Induk.
+                    </div>
+                  ) : (
+                    <div className="space-y-3 mb-4 text-xs">
+                      <p className="text-slate-600 dark:text-slate-300">
+                        Pilih rombel tujuan untuk <strong>{selectedRombelStudentIds.length} siswa terpilih</strong>:
+                      </p>
+                      <select
+                        value={bulkTargetClass}
+                        onChange={(e) => setBulkTargetClass(e.target.value)}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                      >
+                        {availableClasses.filter(c => c !== selectedRombelModal).map(c => (
+                          <option key={c} value={c}>
+                            {c} (Tingkat {getTingkatKelasNumber(c)})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsBulkRemoveModalOpen(false)}
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmBulkRemove}
+                      className={cn(
+                        "px-4 py-2 rounded-xl text-xs font-black text-white shadow-md cursor-pointer transition-all active:scale-95",
+                        bulkActionType === 'keluarkan' ? "bg-rose-600 hover:bg-rose-700" : "bg-blue-600 hover:bg-blue-700"
+                      )}
+                    >
+                      {bulkActionType === 'keluarkan' ? 'Ya, Keluarkan Siswa' : `Pindahkan ke ${bulkTargetClass}`}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
